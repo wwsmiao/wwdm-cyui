@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYUI · 对话式 ComfyUI 创作台</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ============ 左侧栏 ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">C<span>✦</span></div>
+      <div class="brand-text">CYUI<small>Qwen-Image 2.1 Turbo</small></div>
+      <button class="collapse-btn" id="collapseBtn" title="收起侧栏">◧</button>
+    </div>
+
+    <button class="new-chat" id="newChatBtn"><span>＋</span> 新建对话</button>
+
+    <nav class="main-nav" id="mainNav">
+      <button data-view="home" class="active"><i>⌂</i> 创作</button>
+      <button data-view="skills"><i>✧</i> 技能库</button>
+      <button data-view="gallery"><i>▦</i> 作品图库</button>
+      <button data-view="help"><i>?</i> 帮助</button>
+      <button data-view="settings"><i>⚙</i> 全局设置</button>
+    </nav>
+
+    <div class="side-block side-sessions">
+      <div class="side-title">最近对话
+        <span class="side-title-acts">
+          <button class="mini-link" id="sessionSelectAll" title="全选 / 取消全选">全选</button>
+          <button class="mini-link" id="clearSessionsBtn">清空</button>
+        </span>
+      </div>
+      <div class="session-nav" id="sessionNav"></div>
+      <div class="sess-bar hidden" id="sessBar">
+        <span id="sessSelInfo">已选 0 个</span>
+        <button class="mini-link danger-link" id="sessionDelSel">删除所选</button>
+      </div>
+    </div>
+
+    <div class="side-footer">
+      <div class="conn"><span class="dot" id="connDot"></span><span id="connText">连接检测中…</span></div>
+      <div class="user"><div class="avatar" id="sideAvatar"><span id="sideAvatarText">薇</span></div><div class="user-txt"><span id="sideUserName">薇薇的猫</span><small>本地工作站</small></div></div>
+    </div>
+  </aside>
+
+  <!-- ============ 图片尺寸卡片（独立于生成参数） ============ -->
+  <div class="size-mask hidden" id="sizeMask"></div>
+  <div class="size-card hidden" id="sizeCard">
+    <div class="size-head">
+      <h3>图片尺寸 <small>比例 / 分辨率 / 张数</small></h3>
+      <button class="icon-btn" id="sizeClose">×</button>
+    </div>
+    <div class="size-body">
+      <div class="pg-head">尺寸来源</div>
+      <div class="seg-row" id="p_sizeModeSeg">
+        <button data-sizemode="auto">自动</button>
+        <button data-sizemode="fixed">按比例</button>
+        <button data-sizemode="native">原图像素</button>
+      </div>
+      <div class="pg-tip" id="sizeModeTip">有参考图时跟随图1：保持原图比例与像素，只缩不放。</div>
+
+      <div class="pg-head">图片比例</div>
+      <div class="seg-grid" id="p_ratioGrid"></div>
+
+      <div class="pg-head">分辨率 <small>最长边 1024 / 1536 / 2048</small></div>
+      <div class="seg-row" id="p_resSeg">
+        <button data-res="1K">1K</button>
+        <button data-res="1.5K">1.5K</button>
+        <button data-res="2K">2K</button>
+      </div>
+
+      <div class="pg-head">自定义尺寸 <small>任意正整数，优先于预设</small></div>
+      <div class="custom-row">
+        <input type="number" id="p_customW" min="64" max="4096" step="1" placeholder="宽">
+        <span>x</span>
+        <input type="number" id="p_customH" min="64" max="4096" step="1" placeholder="高">
+        <button id="p_customApply">应用</button>
+      </div>
+      <div class="pg-tip">范围 64–4096；非 8 的倍数由 ComfyUI 自动对齐（如 900 → 896）</div>
+
+      <div class="pg-head">生成张数</div>
+      <div class="seg-row" id="p_batchSeg">
+        <button data-batch="1">1张</button>
+        <button data-batch="2">2张</button>
+        <button data-batch="4">4张</button>
+      </div>
+      <div class="custom-row" style="margin-top:8px">
+        <input type="number" id="p_batchCustom" min="1" max="8" step="1" placeholder="自定义张数（1-8）">
+        <button id="p_batchApply">应用</button>
+      </div>
+      <div class="pg-tip">一次提交出多张，显存吃紧时建议 4 张以内</div>
+
+      <div class="pg-summary" id="p_summary">1:1 · 1K · 1024x1024 · 1张</div>
+    </div>
+    <div class="size-foot"><button class="primary-btn" id="sizeDone">完成</button></div>
+  </div>
+
+  <!-- ============ 图片选择弹窗（对话 / 自由画布 / AI 窗口共用） ============ -->
+  <div class="pick-mask hidden" id="pickMask"></div>
+  <div class="pick-card hidden" id="pickCard">
+    <div class="pick-head">
+      <h3>图片 <small id="pickMode">历史输入</small></h3>
+      <div class="pick-actions">
+        <button class="pick-btn" id="pickUpload">⤒ 上传</button>
+        <button class="icon-btn" id="pickClose">×</button>
+      </div>
+    </div>
+    <div class="pick-tabs" id="pickTabs">
+      <button type="button" class="pick-tab active" data-src="input">历史输入</button>
+      <button type="button" class="pick-tab" data-src="result">我的作品</button>
+    </div>
+    <div class="pick-tip" id="pickTip">点一下选中，双击看图片信息；也可以直接 Ctrl+V 粘贴，或把图拖进这个窗口。</div>
+    <div class="pick-body">
+      <div class="pick-grid" id="pickGrid"></div>
+      <div class="pick-empty hidden" id="pickEmpty">
+        <b>还没有历史图片</b>
+        <span>点右上角「上传」，或把图片拖进这个窗口 / 直接 Ctrl+V 粘贴</span>
+      </div>
+    </div>
+    <div class="pick-foot">
+      <span class="pick-count" id="pickSelInfo">已选 0 张</span>
+      <div class="pick-foot-btns">
+        <button class="ghost-btn" id="pickCancel">取消</button>
+        <button class="primary-btn" id="pickDone">加入</button>
+      </div>
+    </div>
+    <input type="file" id="pickFile" accept="image/*" multiple hidden>
+  </div>
+
+  <!-- 双击图片后的信息浮层 -->
+  <div class="pf-mask hidden" id="pfMask"></div>
+  <div class="pf-card hidden" id="pfCard">
+    <button class="icon-btn pf-close" id="pfClose">×</button>
+    <div class="pf-img"><img id="pfImg" alt="图片预览"></div>
+    <div class="pf-meta" id="pfMeta"></div>
+  </div>
+
+  <!-- ============ 主区 ============ -->
+  <main class="main">
+    <header class="topbar">
+      <div class="crumb" id="crumb">创作 <em>/</em> 新对话</div>
+      <div class="top-right">
+        <button class="icon-btn danger-ghost hidden" id="chatDeleteBtn" title="删除当前对话">🗑 删除对话</button>
+        <button class="queue-pill" id="queuePill" title="查看队列详情">队列 0</button>
+        <button class="icon-btn" id="gotoCanvas" title="进入自由画布">⬚ 自由画布</button>
+        <button class="icon-btn" id="themeBtn" title="切换明暗">☾</button>
+        <button class="icon-btn primary" id="paramsBtn" title="生成参数">⚙ 参数</button>
+      </div>
+    </header>
+
+    <!-- 首页 -->
+    <section class="view view-home" id="viewHome">
+      <div class="hero-wrap">
+        <h1 class="hero">Hi，今天想创作些什么？<span class="spark">✦</span></h1>
+        <p class="hero-sub">一句话、一张图，交给 Qwen-Image 2.1 Turbo。<span id="heroModel">模型加载中…</span></p>
+
+        <div class="mode-tabs" id="modeTabs">
+          <button class="mode-tab active" data-agent="auto">🪄 智能创作</button>
+          <button class="mode-tab" data-agent="off">🖼 图片</button>
+          <button class="mode-tab" disabled>🎬 视频 <em>敬请期待</em></button>
+        </div>
+
+        <div id="composerHome"></div>
+        <div class="prompt-cloud home-cloud hidden" id="homeCloud">
+          <div class="pc-head">
+            <span class="pc-title">✨ 提示词推荐云 <em data-role="cloudMode"></em></span>
+          </div>
+          <div class="pc-body"></div>
+        </div>
+        <div class="home-foot">CYUI · 本地运行 · 所有图片与历史仅保存在这台工作站</div>
+      </div>
+    </section>
+
+    <!-- 对话 -->
+    <section class="view view-chat hidden" id="viewChat">
+      <div class="chat-scroll" id="chatScroll"><div class="chat-inner" id="chatInner"></div></div>
+      <div class="chat-dock"><div id="composerDock"></div></div>
+    </section>
+
+    <!-- 技能库 -->
+    <section class="view hidden" id="viewSkills">
+      <div class="page-head"><h1>技能库</h1><p>4 种图像模式 + AI 助手技能，右侧 DeepSeek 助手会按需调用</p></div>
+      <div class="skill-grid big" id="skillGridAll"></div>
+      <div class="page-sub-head">AI 助手技能 <small>在右侧助手对话里说需求即可自动匹配</small></div>
+      <div class="ai-skill-grid" id="assistantSkills"></div>
+    </section>
+
+    <!-- 图库 -->
+    <section class="view hidden" id="viewGallery">
+      <div class="page-head">
+        <h1>作品图库</h1><p>所有生成结果都保存在 D:\wwdm-cyui\data\results · 勾选后可批量删除或发送到图片编辑，点名称可改名</p>
+        <div class="head-actions">
+          <span class="g-selinfo" id="gallerySelInfo">未选择</span>
+          <button class="ghost-btn" id="gallerySelectAll">全选</button>
+          <button class="danger-btn" id="galleryDeleteSel">删除所选</button>
+          <button class="primary-btn" id="galleryToEdit">发送到图片编辑</button>
+          <button class="ghost-btn" id="galleryRefresh">刷新</button>
+        </div>
+      </div>
+      <div class="gallery-grid" id="galleryGrid"></div>
+    </section>
+
+    <!-- 帮助 -->
+    <section class="view hidden" id="viewHelp">
+      <div class="page-head">
+        <h1>帮助 · 模型准备</h1>
+        <p>所有工作流都已内置固定，你只需要把模型放进 ComfyUI 对应目录，再在「设置」里填好服务地址。</p>
+      </div>
+      <div class="help-wrap">
+        <div class="set-card">
+          <h3>版本与更新 <small id="updateFlag" class="help-flag">…</small></h3>
+          <p class="help-note">当前版本 <b id="updateCurVer">读取中…</b>。新版本统一发布在下面的网盘（长期链接，里面始终是最新版）：</p>
+          <div class="update-actions">
+            <a class="primary-btn update-link" id="updateDownload" href="#" target="_blank" rel="noreferrer">⬇ 打开网盘 · 获取最新版</a>
+          </div>
+          <p class="help-note">更新方法：下载最新 zip → 解压后覆盖到本程序目录 → 重启程序。zip 里<b>不含 data 文件夹</b>，直接覆盖不会影响你的作品图库与对话记录。</p>
+        </div>
+
+        <div class="set-card">
+          <h3>① 必备模型与放置位置 <small id="helpOnline" class="help-flag">检测中…</small></h3>
+          <table class="help-table models">
+            <thead><tr><th>状态</th><th>文件名</th><th>放到这个目录</th><th>大小</th><th>用途</th><th>下载</th></tr></thead>
+            <tbody id="helpModelRows"><tr><td colspan="6" class="help-muted">读取模型清单中…</td></tr></tbody>
+          </table>
+          <p class="help-note">状态按当前连接到的 ComfyUI 模型清单实时判断。缺失时把文件放好，然后到「设置」点「刷新模型清单」。</p>
+          <div class="mirror-tip">
+            <b>hf-mirror.com 国内镜像</b>
+            <p>「下载」列全部指向 HuggingFace 国内镜像 hf-mirror.com，浏览器直接点即可。文件较大时建议用 aria2 多线程：</p>
+            <code>aria2c -x16 -s16 "https://hf-mirror.com/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors"</code>
+            <p>用 <code>huggingface-cli</code> 下载时，先设置环境变量 <code>HF_ENDPOINT=https://hf-mirror.com</code>。</p>
+          </div>
+        </div>
+
+        <div class="set-card">
+          <h3>② 必备插件（自定义节点） <small id="helpPluginFlag" class="help-flag">检测中…</small></h3>
+          <table class="help-table">
+            <thead><tr><th>状态</th><th>插件 / 节点</th><th>作用</th><th>安装方式</th></tr></thead>
+            <tbody id="helpPluginRows"><tr><td colspan="4" class="help-muted">读取插件清单中…</td></tr></tbody>
+          </table>
+          <p class="help-note">检测基于当前 ComfyUI 的节点注册表（object_info）实时判断。标「可选」的插件缺失不影响基础出图，只影响对应功能。</p>
+        </div>
+
+        <div class="set-card">
+          <h3>③ 目录对照表</h3>
+          <table class="help-table">
+            <thead><tr><th>模型类型</th><th>ComfyUI 目录</th><th>本应用中的位置</th></tr></thead>
+            <tbody>
+              <tr><td>主模型 / UNET（含 GGUF）</td><td><code>ComfyUI/models/unet/</code><br><span class="help-muted">部分版本为 models/diffusion_models/</span></td><td>参数 → 模型设置 → 主模型</td></tr>
+              <tr><td>文本编码器 CLIP（含 GGUF）</td><td><code>ComfyUI/models/clip/</code></td><td>参数 → 模型设置 → 文本编码器</td></tr>
+              <tr><td>VAE</td><td><code>ComfyUI/models/vae/</code></td><td>参数 → 模型设置 → VAE</td></tr>
+              <tr><td>LoRA 风格模型</td><td><code>ComfyUI/models/loras/</code><br><span class="help-muted">支持子目录，如 qw2.1-xxx/xxx.safetensors</span></td><td>参数 → LoRA / 输入框「⭐ LoRA」</td></tr>
+              <tr><td>高清放大模型（SeedVR2）</td><td><code>ComfyUI/models/SEEDVR2/</code></td><td>全局设置 → 高清放大</td></tr>
+              <tr><td>上传的参考图</td><td><code>ComfyUI/input/</code></td><td>自动写入，无需手动放</td></tr>
+              <tr><td>生成结果</td><td><code>ComfyUI/output/cyui/</code><br><span class="help-muted">本应用会另存一份到 D:\wwdm-cyui\data\results</span></td><td>作品图库 / 自由画布</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="set-card">
+          <h3>④ GGUF 底模（可选 · 更省显存）</h3>
+          <ol class="help-list">
+            <li>在 ComfyUI-Manager 搜索并安装 <b>ComfyUI-GGUF</b>，重启 ComfyUI；</li>
+            <li>把 <code>*.gguf</code> 主模型放进 <code>models/unet/</code>，GGUF 文本编码器放进 <code>models/clip/</code>；</li>
+            <li>回到「设置」点「刷新模型清单」，参数里的主模型 / 文本编码器会多出 GGUF 分组，选中即可；</li>
+            <li>加载器会按扩展名自动切到 <code>UnetLoaderGGUF</code> / <code>CLIPLoaderGGUF</code>，其余节点链完全不变。</li>
+          </ol>
+          <p class="help-note">GGUF 只是更省显存的量化格式，并不改变工作流；Turbo 底模仍然按 8 步最优。</p>
+          <p class="help-note">量化底模下载：<a href="https://hf-mirror.com/unsloth/Qwen-Image-2.1-Turbo-GGUF/tree/main" target="_blank" rel="noreferrer">unsloth / Qwen-Image-2.1-Turbo-GGUF</a>（Q2~Q8 共 18 个版本，12G 显存建议 Q4_K_M）。</p>
+          <div id="helpGgufState" class="help-flag">GGUF 节点检测中…</div>
+        </div>
+
+        <div class="set-card">
+          <h3>⑤ 高清放大模型（SeedVR2） <span id="helpUpState" class="help-flag">检测中…</span></h3>
+          <table class="help-table">
+            <thead><tr><th>文件</th><th>放到</th><th>大小</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><code>seedvr2_ema_3b_fp16.safetensors</code></td><td><code>ComfyUI/models/SEEDVR2/</code></td><td>6.3 GB</td><td>3B DiT 主模型（默认）；显存紧张可换 fp8 / GGUF 版本</td></tr>
+              <tr><td><code>ema_vae_fp16.safetensors</code></td><td><code>ComfyUI/models/SEEDVR2/</code></td><td>0.5 GB</td><td>SeedVR2 配套 VAE</td></tr>
+            </tbody>
+          </table>
+          <p class="help-note">下载仓库：<a href="https://hf-mirror.com/numz/SeedVR2_comfyUI/tree/main" target="_blank" rel="noreferrer">numz / SeedVR2_comfyUI（hf-mirror）</a>，文件名与本机一致；官方重打包版在 <a href="https://hf-mirror.com/Comfy-Org/SeedVR2/tree/main" target="_blank" rel="noreferrer">Comfy-Org / SeedVR2</a>（命名略有不同）。</p>
+          <p class="help-note">插件：ComfyUI-Manager 搜索安装 <b>SeedVR2 Video Upscaler</b>（comfyui-seedvr2_videoupscaler）与 <b>TTP Toolset</b>（TTP_Image_Tile_Batch / TTP_Image_Assy 分块拼接），装好重启。</p>
+          <p class="help-note">3×3 分块 + 分辨率 1024 时单张约 2~5 分钟；1.5K / 2K / 4K 按长边像素放大，时间主要花在 9 个分块上。</p>
+        </div>
+
+        <div class="set-card">
+          <h3>⑥ 四步跑通第一张图</h3>
+          <ol class="help-list">
+            <li>启动 ComfyUI（默认 <code>http://127.0.0.1:8188</code>，局域网填 <code>http://主机IP:8188</code>）；</li>
+            <li>打开「设置」，填 ComfyUI 地址并保存，看到「在线」即可；</li>
+            <li>回到「创作」，输入描述直接发送（默认 Turbo 8 步）；</li>
+            <li>出图后点右上角「自由画布」拖拽整理，双击名称可改名。</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- 设置 -->
+    <section class="view hidden" id="viewSettings">
+      <div class="page-head"><h1>全局设置</h1><p>连接、模型、提示词与高清放大统一在这里配置</p></div>
+      <div class="settings-grid">
+        <div class="set-card">
+          <h3>个人资料 <small class="set-sub">头像与名称</small></h3>
+          <div class="profile-row">
+            <div class="profile-avatar" id="profileAvatarPreview">薇</div>
+            <div class="form-group" style="flex:1;min-width:0">
+              <label>昵称 <span class="hint">显示在左下角与助手面板</span></label>
+              <input type="text" id="p_profile_name" maxlength="16" placeholder="薇薇的猫" spellcheck="false">
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px">
+            <label>头像 <span class="hint">建议正方形，自动裁剪居中，PNG / JPG ≤ 4MB</span></label>
+            <div class="addr-row">
+              <button class="ghost-btn" id="profileAvatarBtn">选择图片</button>
+              <button class="mini-link" id="profileAvatarClear" style="display:none">恢复默认</button>
+              <input type="file" id="profileAvatarFile" accept="image/*" hidden>
+            </div>
+          </div>
+          <div class="btn-row"><button class="primary-btn" id="profileSave">保存资料</button></div>
+          <small>头像与昵称保存在浏览器，换设备不跟随；清空昵称会回退为默认「薇薇的猫」。</small>
+        </div>
+        <div class="set-card">
+          <h3>ComfyUI 连接</h3>
+          <div class="form-group">
+            <label>服务地址 <span class="hint">本机填 127.0.0.1；局域网填对方 IP，需 ComfyUI 以 --listen 启动</span></label>
+            <div class="addr-row">
+              <input type="text" id="p_comfy_base" placeholder="http://127.0.0.1:8188" spellcheck="false">
+              <button class="primary-btn" id="comfySave">保存</button>
+            </div>
+            <small id="comfyBaseMsg">地址保存在 D:\wwdm-cyui\data\config.json，改完即时生效。</small>
+          </div>
+          <div class="form-group">
+            <label>本地目录 <span class="hint">可选。图片选择弹窗靠它列出 ComfyUI 的历史输入图</span></label>
+            <div class="addr-row">
+              <input type="text" id="p_comfy_dir" placeholder="例如 G:\wwdm-cyui\ComfyUI" spellcheck="false">
+              <button class="primary-btn" id="comfyDirSave">保存</button>
+            </div>
+            <small id="comfyDirMsg">填 ComfyUI 根目录或它下面的 input 文件夹都行；留空则自动探测。</small>
+          </div>
+          <div id="statusInfo" class="status-info">读取中…</div>
+          <div class="btn-row">
+            <button class="ghost-btn" id="comfyTest">测试连接</button>
+            <button class="ghost-btn" id="refreshCatalog">刷新模型清单</button>
+          </div>
+        </div>
+        <div class="set-card">
+          <h3>提示词润色 / 反推 <span id="llmStatus" class="help-flag">检测中…</span></h3>
+          <div class="form-group"><label>润色来源</label>
+            <select id="p_polish_provider">
+              <option value="local">本地 ComfyUI 工作流 · Qwen3-VL（默认）</option>
+              <option value="deepseek">DeepSeek API（远程）</option>
+            </select>
+            <small>输入框工具行的「✨ 润色」与「🔍 反推」共用这里的配置。</small>
+          </div>
+
+          <button class="ghost-btn" id="editPromptBtn">✏️ 编辑系统提示词（润色 / 反推，本地与 DeepSeek 共用）</button>
+
+          <div class="llm-box" id="llmLocalBox">
+            <div class="llm-head">本地工作流 <small>CLIPLoader → TextGenerateV2 → PreviewAny · 支持单图</small></div>
+            <div class="form-row">
+              <div class="form-group"><label>语言模型 (CLIP) <span class="hint">需放在 models/clip</span></label>
+                <select id="p_llm_model"></select>
+              </div>
+              <div class="form-group"><label>最大长度 <span class="hint">tokens</span></label>
+                <input type="number" id="p_llm_maxlen" min="64" max="4096" step="32" value="512">
+              </div>
+            </div>
+            <label class="check-line"><input type="checkbox" id="p_llm_think"> 思考模式（更准但更慢，模型支持时生效）</label>
+            <small id="llmModelHint">首次加载 4B 权重约 1 分钟，之后单次 10~30 秒。</small>
+          </div>
+
+          <div class="llm-box" id="deepseekBox">
+            <div class="llm-head">DeepSeek 远程 API</div>
+            <div class="form-group"><label>API Key <span class="hint">仅保存在本机浏览器</span></label>
+              <input type="password" id="p_deepseek_key" placeholder="sk-...">
+            </div>
+            <div class="form-group"><label>润色模型 <span class="hint">可点「获取模型」拉取后自选</span></label>
+              <select id="p_deepseek_model"><option value="deepseek-chat">deepseek-chat</option><option value="deepseek-reasoner">deepseek-reasoner</option></select>
+            </div>
+            <div class="form-group"><label>反推视觉模型 <span class="hint">图片反推用，需支持视觉</span></label>
+              <input type="text" id="p_deepseek_vision" placeholder="deepseek-v4-flash-vision-exp" spellcheck="false">
+            </div>
+            <small>润色与反推共用「系统提示词」；反推会调用视觉模型。</small>
+          </div>
+
+          <div class="btn-row">
+            <button class="primary-btn" id="polishSave">保存设置</button>
+            <button class="ghost-btn" id="polishFetchModels">获取 DeepSeek 模型</button>
+          </div>
+        </div>
+        <div class="set-card">
+          <h3>高清放大 <span id="upStatus" class="help-flag">检测中…</span></h3>
+          <div class="form-row">
+            <div class="form-group"><label>默认倍数 <span class="hint">菜单里的「默认」档</span></label>
+              <input type="number" id="p_up_scale" min="1" max="4" step="0.5" value="2">
+            </div>
+            <div class="form-group"><label>分块数 <span class="hint">越大越省显存</span></label>
+              <select id="p_up_tile"><option value="2">2 × 2</option><option value="3">3 × 3</option><option value="4">4 × 4</option><option value="5">5 × 5</option></select>
+            </div>
+          </div>
+          <div class="form-group"><label>放大模型 (DiT) <span class="hint">放在 models/SEEDVR2</span></label>
+            <select id="p_up_dit"></select>
+          </div>
+          <div class="form-group"><label>VAE 模型</label><select id="p_up_vae"></select></div>
+          <div class="form-row">
+            <div class="form-group"><label>SeedVR2 分辨率</label>
+              <select id="p_up_res"><option value="768">768</option><option value="1024">1024</option><option value="1280">1280</option><option value="1536">1536</option></select>
+            </div>
+            <div class="form-group"><label>注意力后端</label><select id="p_up_attn"></select></div>
+          </div>
+          <div class="btn-row">
+            <button class="primary-btn" id="upSave">保存放大设置</button>
+            <button class="ghost-btn" id="upRefresh">刷新放大模型</button>
+          </div>
+          <small>默认 2 倍；1.5K / 2K / 4K 按长边像素放大。首次加载模型约 1 分钟，9 块拼贴单张约 2~5 分钟。</small>
+        </div>
+        <div class="set-card">
+          <h3>提示词推荐云 <small class="set-sub">仅创作首页</small></h3>
+          <label class="check-line"><input type="checkbox" id="p_cloud_enabled"> 显示提示词推荐云</label>
+          <small>关闭后首页输入台下方的推荐云会隐藏；对话页、自由画布、作品图库等页面都不显示。</small>
+          <div class="form-group" style="margin-top:12px">
+            <label>自定义推荐词（每行一条，追加到当前技能的内置推荐词之后）</label>
+            <textarea id="p_cloud_custom" rows="6" placeholder="每行一条，例如：&#10;做一张复古胶片风的咖啡海报&#10;把这张图换成水墨画风格"></textarea>
+          </div>
+          <div class="btn-row"><button class="primary-btn" id="cloudSave">保存推荐云设置</button></div>
+          <small>点推荐词会直接填入首页输入框；清空文本框即可只保留内置推荐词。</small>
+        </div>
+        <div class="set-card">
+          <h3>自由画布</h3>
+          <div class="form-group">
+            <label>横向间距（px，8 ~ 120 · 卡片左右之间）</label>
+            <input type="number" id="p_cv_gap_x" min="8" max="120" step="2" value="28">
+          </div>
+          <div class="form-group">
+            <label>纵向间距（px，8 ~ 120 · 卡片上下之间）</label>
+            <input type="number" id="p_cv_gap_y" min="8" max="120" step="2" value="28">
+          </div>
+          <div class="btn-row"><button class="primary-btn" id="cvGapSave">保存并同步到画布</button></div>
+          <small>保存后立即同步：若正停在自由画布，会按新间距自动重新排布全部作品；新作品落位也按此间距。</small>
+        </div>
+        <div class="set-card">
+          <h3>快捷说明</h3>
+          <ul class="help-list">
+            <li>支持拖拽 / 粘贴图片到输入框，最多 10 张参考图</li>
+            <li>「智能创作」会按关键词与图片数量自动选择技能</li>
+            <li>采样步数与降噪在「参数 → 模型设置」里直接可调；Turbo 改步数会自动重采样 sigma</li>
+            <li>图生图 / 局部重绘以原图 VAE 编码为采样起点，能真正保住未改动区域</li>
+            <li>编辑使用官方空画布 + 参考图条件（Qwen 2.1 编辑流程）</li>
+            <li>「🔍 反推」用本地 Qwen3-VL 把参考图变成提示词，填进输入框后可再润色</li>
+            <li>装好 ComfyUI-GGUF 后，.gguf 底模可在模型列表的「GGUF」分组里选择</li>
+            <li>生成结果自动落盘到 data/results，图库可复用为参考图</li>
+          </ul>
+        </div>
+      </div>
+      <div class="log-card">
+        <div class="log-head"><h3>运行日志</h3><button class="mini-link" id="logsRefresh">刷新</button></div>
+        <pre id="logBox"></pre>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ 自由画布（第一次出图后进入的「新页面」） ============ -->
+  <section class="view view-canvas hidden" id="viewCanvas">
+    <div class="cv-bar cv-topleft" id="cvTopleft">
+      <button class="cv-logo" id="cvHome" title="返回首页">C<span>✦</span></button>
+      <span class="cv-title" id="cvTitle" title="双击重命名画布">自由画布</span>
+      <span class="cv-count" id="cvCount">0 张作品</span>
+      <span class="cv-bar-sep"></span>
+      <button class="cv-tbtn" id="cvZoomOut" title="缩小">−</button>
+      <span class="cv-zoom" id="cvZoomLabel">100%</span>
+      <button class="cv-tbtn" id="cvZoomIn" title="放大">＋</button>
+      <button class="cv-tbtn" id="cvFit" title="缩放回 100%">⤢ 100%</button>
+      <button class="cv-tbtn" id="cvArrange" title="按全局间距整理为瀑布流">▦ 整理</button>
+      <button class="cv-tbtn cv-bar-fold" id="cvBarFold" title="收起 / 展开工具条">◀</button>
+    </div>
+    <!-- 右上角与对话模式顶栏完全相同的按钮组（队列 / 删除 / 切换 / 主题 / 参数） -->
+    <div class="cv-bar cv-topright cv-topbar-mirror">
+      <button class="icon-btn danger-ghost hidden" id="cvDeleteBtn" title="删除当前对话">🗑 删除对话</button>
+      <button class="queue-pill" id="cvQueuePill" title="查看队列详情">队列 0</button>
+      <button class="icon-btn" id="cvToChat" title="切回对话模式">▤ 对话模式</button>
+      <button class="icon-btn" id="cvThemeBtn" title="切换明暗">☾</button>
+      <button class="icon-btn primary" id="cvParams" title="生成参数">⚙ 参数</button>
+    </div>
+
+    <!-- Ctrl+右键框选后出现（参考设计软件的编组操作条） -->
+    <div class="cv-seldock hidden" id="cvSelDock">
+      <span class="dock-count" id="cvSelInfo">已选 0 张</span>
+      <span class="dock-sep"></span>
+      <button class="dock-btn" id="cvGroup" title="把选中的图片打成一个组，之后拖动任一张可整组移动"><i>⌗</i> 创建编组</button>
+      <button class="dock-btn" id="cvUngroup" title="解除分组"><i>⤫</i> 解组</button>
+      <button class="dock-btn" id="cvDownloadSel" title="下载选中的图片"><i>⬇</i> 下载</button>
+      <button class="dock-btn danger" id="cvDeleteSel" title="删除选中的图片"><i>⌫</i> 删除</button>
+      <button class="dock-btn" id="cvClearSel" title="取消选择"><i>×</i> 取消</button>
+    </div>
+    <!-- Ctrl+右键框选的橡皮筋 -->
+    <div class="cv-marquee hidden" id="cvMarquee"></div>
+
+    <div class="cv-viewport" id="cvViewport">
+      <div class="cv-sizer" id="cvSizer"><div class="cv-world" id="cvWorld"></div></div>
+    </div>
+    <div class="cv-empty hidden" id="cvEmpty">还没有作品，在下方描述你想创作的画面 ✦</div>
+
+    <div class="cv-compose" id="cvCompose">
+      <button class="cv-fold" id="cvFold"><span>✦ 创作区</span><em>⌄</em></button>
+      <div id="composerCanvas"></div>
+    </div>
+    <div class="cv-hint">拖拽卡片自由摆放 · Ctrl+左键拖动框选 / 点选多张 · 创建编组后可整组移动 · 点图片看大图 · Ctrl + 滚轮缩放</div>
+  </section>
+
+  <!-- ============ 参数抽屉 ============ -->
+  <div class="drawer-mask" id="drawerMask"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <h2><span class="dh-ico">▥</span> 生成参数</h2>
+      <div class="dh-actions">
+        <button class="dh-reset" id="paramsReset">↻ 恢复默认</button>
+        <button class="icon-btn" id="drawerClose">×</button>
+      </div>
+    </div>
+    <div class="drawer-body">
+
+      <div class="drawer-section">采样方案 <small>先定方案，再配底模</small></div>
+          <div class="form-group"><label>采样方案 <span class="hint" id="samplingBadge"></span></label>
+            <select id="p_sampling" hidden><option value="turbo">Turbo · 8 步固定 sigma（推荐）</option><option value="viggle">Viggle · 5 步加速（需加速 LoRA）</option><option value="standard">Standard · KSampler 自定义</option></select>
+            <div class="samp-cards" id="p_samplingCards"></div>
+            <small id="samplingHint">Turbo 权重训练时锁定 8 步调度，改步数会重采样 sigma 曲线。</small>
+            <small id="accelHint" class="hidden"></small>
+            <small id="unetWarn" class="hidden"></small>
+            <details class="samp-help">
+              <summary>三种方案到底差在哪</summary>
+              <div id="sampTable"></div>
+              <p class="samp-note">5 步、8 步、25~40 步不是一个东西的三种调法，而是<strong>三套配套关系</strong>：
+                步数曲线、底模蒸馏程度、CFG 用法必须成套换。混搭是糊图最主要的原因。</p>
+            </details>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>采样步数 <span class="hint" id="stepsHint">Turbo 建议 8</span></label>
+              <input type="number" id="p_steps" min="1" max="200" value="8">
+            </div>
+            <div class="form-group"><label>CFG <span class="hint" id="cfgHint">Turbo 用 1.0</span></label>
+              <input type="number" id="p_cfg" min="0" max="30" step="0.1" value="1">
+            </div>
+          </div>
+
+      <div class="drawer-section">通用 <small>种子与参考图上限</small></div>
+          <div class="form-row">
+            <div class="form-group"><label>种子 <span class="hint">-1 = 随机</span></label><input type="number" id="p_seed" value="-1"></div>
+            <div class="form-group"><label>最多参考图 <span class="hint">Qwen-Image-2.1 编辑上限 10</span></label><input type="number" id="p_max_images" min="1" max="10" value="10"></div>
+          </div>
+          <label class="check-line"><input type="checkbox" id="p_custom_size"> 强制使用指定尺寸（不跟随图1）</label>
+
+          <div class="drawer-section">模型设置 <small>底模要和上面的方案配套</small></div>
+          <div class="form-group"><label>主模型 (UNET) <span class="hint">支持 safetensors / GGUF</span></label>
+            <select id="p_unet"></select>
+            <small id="ggufHint">GGUF 底模需安装 ComfyUI-GGUF，详情见「帮助」页。</small>
+          </div>
+          <div class="form-group"><label>文本编码器 (CLIP)</label><select id="p_clip"></select></div>
+          <div class="form-group"><label>VAE</label><select id="p_vae"></select></div>
+          <div class="form-group"><label>降噪 / 重绘幅度 denoise <span class="hint" id="denoiseVal">1.00</span></label>
+            <input type="range" id="p_denoise" min="0.05" max="1" step="0.05" value="1">
+            <small id="denoiseHint">文生图 / 编辑保持 1.0；图生图、局部重绘越小越贴近原图（0.4~0.7 稳妥）。</small>
+          </div>
+          <div class="form-group"><label>LoRA <span class="hint">最多 5 个，按顺序串接</span></label>
+            <input type="text" id="p_loraSearch" placeholder="搜索 LoRA…">
+            <div class="lora-list" id="p_loraList"></div>
+          </div>
+
+          <div class="drawer-section">高级参数</div>
+          <div class="form-group"><label>参考图缩放预算</label>
+            <select id="p_resPreset">
+              <option value="1024">1024 · 约 1MP</option>
+              <option value="1536">1536 · 约 2MP</option>
+              <option value="2048">2048 · 原生 2K</option>
+              <option value="0">0 · 保持参考图原尺寸</option>
+            </select>
+          </div>
+          <div class="form-row" id="standardOnly2" style="display:none">
+            <div class="form-group"><label>采样器</label><select id="p_sampler"></select></div>
+            <div class="form-group"><label>调度器</label><select id="p_scheduler"></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Cache 设备</label><select id="p_cache_device"><option>auto</option><option>gpu</option><option>cpu</option><option>off</option></select></div>
+            <div class="form-group"><label>Cache 精度</label><select id="p_cache_dtype"><option>default</option><option>int8</option><option>int4</option></select></div>
+          </div>
+          <div class="form-group"><label>负面提示词</label><textarea id="p_negative" rows="3"></textarea></div>
+    </div>
+    <div class="drawer-foot">
+      <button class="primary-btn" id="paramsDone">完成</button>
+    </div>
+  </aside>
+
+  <!-- ============ 弹层 ============ -->
+  <div class="modal hidden" id="maskModal">
+    <div class="modal-inner wide">
+      <div class="modal-head"><h2>绘制重绘遮罩</h2><button class="icon-btn" id="maskClose">×</button></div>
+      <div class="mask-toolbar">
+        <span>笔刷</span><input type="range" id="brushSize" min="8" max="160" value="48">
+        <button class="chip-btn active" id="brushPaint">✎ 涂抹（重绘）</button>
+        <button class="chip-btn" id="brushErase">⌫ 擦除（保留）</button>
+        <button class="chip-btn" id="brushClear">清空</button>
+        <span class="mask-tip">白色 = 重绘区域，黑色 = 保持原样</span>
+      </div>
+      <div class="canvas-wrap"><canvas id="maskCanvas"></canvas></div>
+      <div class="modal-foot"><span id="maskInfo">加载中…</span><button class="primary-btn" id="maskSave">保存遮罩</button></div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="lightbox">
+    <div class="lb-shell" id="lbShell">
+      <button class="icon-btn lb-close" id="lightboxClose">×</button>
+      <div class="lb-view"><img id="lightboxImg" alt="预览"></div>
+      <aside class="lb-side" id="lbSide">
+        <div class="lb-side-head"><b>作品信息</b><button class="mini-link" id="lbToggle">收起 ›</button></div>
+        <div class="lb-side-body" id="lbBody"></div>
+      </aside>
+      <button class="lb-expand hidden" id="lbExpand" title="展开作品信息面板">‹ 信息</button>
+    </div>
+  </div>
+
+  <div class="popover hidden" id="popover"></div>
+
+  <!-- 全局统一进度条（对话模式 / 自由画布共用） -->
+  <div class="global-progress hidden" id="globalProgress">
+    <div class="gp-head"><span id="gpText">生成中 0%</span></div>
+    <div class="gp-bar"><i id="gpBar"></i></div>
+  </div>
+
+  <!-- 生成图片快捷菜单（功能待接入工作流） -->
+  <div class="img-menu hidden" id="imgMenu">
+    <button data-mi="view"><i>⤢</i> 查看大图</button>
+    <button data-mi="reverse"><i>🔍</i> 反推提示词</button>
+    <button data-mi="upscale"><i>✨</i> 高清放大 <em>›</em></button>
+    <button data-mi="toedit"><i>✎</i> 发送到图片编辑</button>
+    <button data-mi="toimg2img"><i>◈</i> 发送到图生图</button>
+    <button data-mi="tot2i"><i>✦</i> 发送提示词到文生图</button>
+  </div>
+
+  <!-- 高清放大倍数二级菜单 -->
+  <div class="img-sub popover hidden" id="imgSub">
+    <div class="pop-title">放大到</div>
+    <button data-target="default">默认 <small id="upDefLabel">×2</small></button>
+    <button data-target="1536">1.5K <small id="up15Label"></small></button>
+    <button data-target="2048">2K <small id="up2Label"></small></button>
+    <button data-target="4096">4K <small id="up4Label"></small></button>
+    <div class="img-sub-tip">1.5K/2K/4K 按长边像素放大</div>
+  </div>
+
+  <!-- 队列详情小窗 -->
+  <div class="modal hidden" id="queueModal">
+    <div class="modal-inner queue-inner">
+      <div class="modal-head">
+        <h2>队列详情 <small id="queueAddr" class="queue-addr"></small></h2>
+        <div class="dh-actions">
+          <button class="mini-link" id="queueRefresh">刷新</button>
+          <button class="icon-btn" id="queueClose">×</button>
+        </div>
+      </div>
+      <div class="queue-body" id="queueBody">
+        <div class="help-muted">读取队列中…</div>
+      </div>
+      <div class="modal-foot">
+        <span id="queueSummary">—</span>
+        <div class="btn-row">
+          <button class="ghost-btn" id="queueClear">清空排队</button>
+          <button class="danger-btn" id="queueInterrupt">中断当前</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 系统提示词弹窗（润色 / 反推，本地与 DeepSeek 共用） -->
+  <div class="modal hidden" id="promptModal">
+    <div class="modal-inner wide prompt-inner">
+      <div class="modal-head"><h2>系统提示词</h2><button class="icon-btn" id="promptModalClose">×</button></div>
+      <div class="prompt-body">
+        <p class="help-muted">本地 Qwen3-VL 工作流与 DeepSeek 模式共用这两份提示词；留空保存会沿用默认值。</p>
+        <div class="form-group"><label>润色 Agent <span class="hint">把用户输入扩写成高质量正面提示词</span></label>
+          <textarea id="m_sys_polish" rows="11" spellcheck="false"></textarea>
+        </div>
+        <div class="form-group"><label>反推 Agent <span class="hint">把单张图片反推成画面提示词</span></label>
+          <textarea id="m_sys_reverse" rows="9" spellcheck="false"></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="ghost-btn" id="m_sys_reset">恢复默认</button>
+        <div class="btn-row">
+          <button class="ghost-btn" id="promptModalCancel">取消</button>
+          <button class="primary-btn" id="promptModalSave">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自定义确认弹窗（替代 js 原生 confirm） -->
+  <div class="modal hidden" id="confirmModal">
+    <div class="confirm-card">
+      <div class="confirm-text" id="confirmText"></div>
+      <div class="confirm-actions">
+        <button class="ghost-btn" id="confirmCancel">取消</button>
+        <button class="danger-btn" id="confirmOk">确定</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- DeepSeek 助手：右侧从顶到底的全高弹出卡（可全屏 / 收缩到右侧） -->
+  <button class="ai-fab" id="aiFab" title="打开 DeepSeek 助手（可拖动）"><span>✨</span></button>
+  <section class="ai-panel hidden" id="aiPanel">
+    <header class="ai-head">
+      <div class="ai-brand">
+        <span class="ai-logo">✦</span>
+        <div class="ai-brand-txt">
+          <b id="aiTitle">DeepSeek 助手</b>
+          <small id="aiStatus"><i class="ai-dot"></i> 未配置 API Key</small>
+        </div>
+      </div>
+      <div class="ai-acts">
+        <button id="aiHistoryBtn" title="历史对话">🕘</button>
+        <button id="aiNew" title="新建对话">＋</button>
+        <button id="aiFull" title="全屏 / 还原">⛶</button>
+        <button id="aiClose" title="关闭">×</button>
+      </div>
+    </header>
+
+    <!-- 聊天视图 -->
+    <div class="ai-view" id="aiChatView">
+      <div class="ai-body" id="aiBody"></div>
+      <div class="ai-attach-row hidden" id="aiAttachRow"></div>
+      <!-- LoRA 手选面板：勾上的会跟着每条指令发给助手，AI 也会被告知「已锁定」 -->
+      <div class="ai-lora-pop hidden" id="aiLoraPop">
+        <div class="ail-head"><b>LoRA</b><small id="ailCount">已选 0 / 5</small>
+          <button class="icon-btn" id="ailClose">×</button>
+        </div>
+        <input type="text" id="ailSearch" placeholder="搜索 LoRA…（中文名 / 英文名都能搜）" spellcheck="false">
+        <div class="ail-list" id="ailList"></div>
+        <div class="ail-foot">
+          <button class="mini-link" id="ailClear">清空</button>
+          <span class="ail-tip" id="ailTip">勾选后每轮都会带上</span>
+          <button class="primary-btn" id="ailDone">完成</button>
+        </div>
+      </div>
+      <footer class="ai-foot">
+        <textarea id="aiInput" rows="1" placeholder="描述你想创作的内容…"></textarea>
+        <div class="ai-foot-bar">
+          <div class="ai-tools">
+            <button class="ai-tool-btn" id="aiAttach" title="上传图片给助手">＋</button>
+            <button class="ai-tool-btn ai-lora-btn" id="aiLora" title="选择 LoRA（AI 也会自己按需搜索）">⭐<em id="aiLoraCount">0</em></button>
+            <button class="ai-tool-btn" id="aiSettings" title="全局设置 / DeepSeek 配置">⚙</button>
+            <span class="ai-hint">Enter 发送 · Shift+Enter 换行</span>
+          </div>
+          <button class="ai-send" id="aiSend" title="发送">↑</button>
+          <input type="file" id="aiFile" accept="image/*" multiple hidden>
+        </div>
+      </footer>
+    </div>
+
+    <!-- 历史对话视图：切换 / 重命名 / 单个或批量删除 -->
+    <div class="ai-view ai-history hidden" id="aiHistoryView">
+      <div class="ai-hist-head">
+        <div><b>历史对话</b><small id="aiHistCount">0 个对话</small></div>
+        <button class="ghost-btn" id="aiHistNew">＋ 新建对话</button>
+      </div>
+      <div class="ai-hist-tools">
+        <label class="ai-hist-all"><input type="checkbox" id="aiHistAll"> 全选</label>
+        <span id="aiHistSel">已选 0 个</span>
+        <button class="mini-link danger-link" id="aiHistDelSel">删除所选</button>
+      </div>
+      <div class="ai-hist-list" id="aiHistList"></div>
+    </div>
+  </section>
+  <div class="toast" id="toast"></div>
+  <!-- 顶部轻提示：固定在 topbar 右上角下方，承接「已切换到 X」这类反馈，不遮挡任何选项 -->
+  <div class="hero-notice" id="heroNotice"></div>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

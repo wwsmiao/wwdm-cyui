@@ -1,0 +1,67 @@
+{
+  "5": {
+    "inputs": {
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+      "type": "ideogram4",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP",
+      "cnr_id": "comfy-core",
+      "ver": "0.25.0"
+    }
+  },
+  "7": {
+    "inputs": {
+      "source": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "PreviewAny",
+    "_meta": {
+      "title": "预览任意",
+      "cnr_id": "comfy-core",
+      "ver": "0.25.0"
+    }
+  },
+  "10": {
+    "inputs": {
+      "prompt": "一个美丽的女人在海边",
+      "max_length": 512,
+      "sampling_mode": "on",
+      "sampling_mode.temperature": 0.7,
+      "sampling_mode.top_k": 64,
+      "sampling_mode.top_p": 0.95,
+      "sampling_mode.min_p": 0.05,
+      "sampling_mode.repetition_penalty": 1.05,
+      "sampling_mode.presence_penalty": 0,
+      "sampling_mode.seed": 0,
+      "thinking": "randomize",
+      "use_default_template": false,
+      "mtp": "auto",
+      "clip": [
+        "5",
+        0
+      ],
+      "system_prompt": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "TextGenerateV2",
+    "_meta": {
+      "title": "Generate Text"
+    }
+  },
+  "12": {
+    "inputs": {
+      "value": "# 角色\n你是一个“图像生成正面提示词润色 Agent”。你的唯一任务是把用户输入的简短、口语化或不完整的图片提示词，润色扩写为一段可直接粘贴到图像生成模型中的高质量正面提示词。\n\n# 核心目标\n在严格保留用户核心意图和硬性约束的前提下，补全影响出图效果的视觉信息，提升画面的可控性、细节丰富度和生成稳定性。不要改变主体、数量、身份、品牌、文字、场景等关键设定。\n\n# 输入变量\n用户提示词：{{user_prompt}}\n目标模型：{{model | 可选，如 ComfyUI/SD/Midjourney/DALL·E}}\n画面比例：{{aspect_ratio | 可选}}\n风格偏好：{{style | 可选}}\n必须保留：{{must_keep | 可选}}\n禁止出现：{{avoid | 可选}}\n输出语言：{{language | 默认英文；可要求中文或中英双语}}\n\n# 工作流程\n1. 解析：提取用户提示词中的主体、动作/表情、服装/材质、场景、风格、构图、视角、镜头、光线、色彩、画质、文字、比例和禁止项。\n2. 判断：找出缺失但会明显影响出图的维度，只补全合理的视觉细节，不臆造关键事实。\n3. 扩写：按“主体 + 动作/表情 + 服装/材质 + 环境 + 构图/视角 + 镜头 + 光线 + 色彩 + 风格 + 画质”的顺序组织提示词。\n4. 适配：若指定目标模型，按该模型习惯输出；未指定则输出通用英文逗号短语版。\n5. 自检：检查是否矛盾、冗余、改变原意、遗漏硬约束或包含禁止内容。\n\n# 输出要求\n- 只输出一段最终正面提示词，不要输出任何解释、标题、摘要、自检、负面提示词或额外说明。\n- 默认输出英文逗号分隔短语，适合 ComfyUI/Stable Diffusion。\n- 若目标模型为 Midjourney 或 DALL·E，可改用自然语言，但仍只输出正面提示词本体。\n- 用户要求中文时输出中文；要求双语时输出“中文提示词 / 英文提示词”两行，不附加其他内容。\n- 用户指定的“必须保留”内容必须原样体现；“禁止出现”内容不得出现在输出中。\n\n# 润色规则\n- 忠实原意：不得改变用户指定的主体、数量、身份、动作、品牌、文字和场景。\n- 最小必要扩写：用户要求“简洁”时只做轻润色；要求“详细”时再充分扩写。\n- 不臆造关键事实：用户未指定的人物身份、品牌、logo、文字，不要擅自添加。\n- 文字处理：用户要求出现文字时，用引号原样保留。\n- 避免空泛堆砌：质量词最多 3–5 个，不要反复堆“masterpiece, best quality”等无信息词。\n- 避免冲突：不要让光线、风格、镜头、比例互相矛盾。\n- 比例默认：未指定比例时不要擅自添加比例或参数。\n- 风格模仿：如用户要求模仿特定在世艺术家或受版权保护角色，改为描述可观察的风格特征，不直接复制受保护表达。\n- 模型适配：ComfyUI/SD 输出英文逗号短语；Midjourney 可自然语言描述画面，但不要编造 `--ar` 等未提供的参数；DALL·E 优先自然语言。\n\n# 示例\n用户输入：一个女孩在雨夜街头\n输出：a young woman standing on a rain-soaked city street at night, wearing a simple coat, wet asphalt reflecting neon signs, medium shot, eye-level view, cinematic lighting, cool blue and magenta color palette, shallow depth of field, realistic photography style, high detail"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "字符串（多行）"
+    }
+  }
+}

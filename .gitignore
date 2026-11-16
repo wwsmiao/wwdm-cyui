@@ -1,0 +1,27 @@
+# 运行数据（用户图库、会话、配置）——绝不入库
+data/
+
+# 虚拟环境
+venv/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 打包产物与构建中间物
+dist/
+build/
+dist_update/
+*.spec
+
+# 日志与临时文件
+logs/
+*.log
+*.bak
+backups/
+
+# IDE / 系统
+.idea/
+.vscode/
+Thumbs.db

@@ -1,0 +1,112 @@
+# =====================================================================
+# CYUI —— 对话式 ComfyUI 创作台（Flask 应用）· 依赖清单
+#
+# 本文件依据 D:\wwdm-cyui 全部源码（app/*.py + run.py，共 11 个 .py）
+# 的 import 逐条核对生成，版本号取自本机实测通过的 venv。
+#
+# 运行环境（已实测）：
+#   Python 3.12.10
+#   虚拟环境 D:\wwdm-cyui\venv  （基于 D:\python312\python.exe 创建）
+#   include-system-site-packages = false（不共享系统包，依赖必须装进 venv）
+#
+# 安装：
+#   D:\wwdm-cyui\venv\Scripts\python.exe -m pip install -r requirements.txt
+#
+# 启动：
+#   D:\wwdm-cyui\venv\Scripts\python.exe D:\wwdm-cyui\run.py
+#   浏览器打开 http://127.0.0.1:7871
+#
+# 说明：本项目只依赖 4 个三方包，其余导入（base64 / json / threading /
+#      uuid / re / io / math / concurrent.futures / urllib.parse 等）
+#      全部来自 Python 标准库，无需安装。
+# =====================================================================
+
+
+# ---------------------------------------------------------------------
+# 一、直接依赖（源码有 import，必须安装）
+# ---------------------------------------------------------------------
+
+# Web 框架：路由注册、模板渲染、静态资源、JSON 响应
+# 引用：app/__init__.py:13（create_app）、app/routes.py:12（Blueprint 等）
+flask==3.1.3
+
+# HTTP 客户端：向 ComfyUI 提交工作流 / 查队列 / 取 history，以及 DeepSeek API
+# 引用：app/comfy.py:16,22-23（全局 Session + trust_env=False 绕系统代理）
+#       app/polish.py:11（DeepSeek 润色/反推）
+#       app/assistant.py:18（图片助手工具调用）
+requests==2.34.2
+
+# 图片处理：读上传图尺寸、EXIF 自动转正、遮罩导出、测试图生成
+# 只用 Image.open / ImageOps.exif_transpose / save / size / mode 等稳定 API
+# 引用：app/routes.py:13,96-97 · app/upscale.py:21,89-90 · app/assistant.py:19,202-203
+pillow==13.0.0
+
+# ComfyUI 进度通道（/ws）：订阅 progress / executing / execution_error 事件
+# 注意：这是 websocket-client，包名带 -client；绝不能装成同名的 websocket（见第三节）
+# 引用：app/comfy.py:322（_ws_worker 内延迟导入，只在启动后连接进度通道时触发）
+websocket-client==1.9.2
+
+
+# ---------------------------------------------------------------------
+# 二、间接依赖（由上面 4 个包自动带入，无需手写）
+#
+#   Flask      → blinker · click · itsdangerous · Jinja2 · MarkupSafe · Werkzeug
+#   requests   → certifi · charset-normalizer · idna · urllib3
+#
+# 这些不要单独钉版本，避免与主包解析出的约束打架。
+# ---------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------
+# 三、⚠ 最容易踩的坑：websocket 与 websocket-client 是两个包
+#
+# 代码写的是 `import websocket`，但要求模块里有 create_connection()。
+# 这只有 websocket-client 提供。若误装成 `pip install websocket`，会得到
+# 一个 2011 年的同名老包（0.2.1），导入不报错但缺 create_connection，
+# 表现为启动日志反复刷：
+#     [WARN] 进度通道断开（module 'websocket' has no attribute
+#            'create_connection'），2 秒后重连
+# 网页能开、能提交任务，但进度条与实时节点名永远不动。
+#
+# 正确做法（先卸错的，再装对的）：
+#   python -m pip uninstall -y websocket
+#   python -m pip install websocket-client==1.9.2
+#
+# 另注：app/comfy.py:325-333 会探测 create_connection 的签名来决定是否传
+# http_proxy_host / http_no_proxy。websocket-client 1.x 把这两个放在
+# **options 里，签名探测取不到，故实际不传代理参数——实测 127.0.0.1:8188
+# 直连正常（已连接 ComfyUI 进度通道 · http://127.0.0.1:8188）。
+# 若日后 ComfyUI 迁移到需经代理的远程地址，需改这段逻辑或显式设 NO_PROXY。
+# ---------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------
+# 四、venv 里现有、但项目代码完全未引用 —— 可以卸掉瘦身
+#
+#   gevent · greenlet · zope.event · zope.interface · cffi · pycparser
+#
+# 这几个是 gevent 及其依赖链，源码中无任何 import（推测是排查进度通道
+# 问题时的试验残留）。卸载不影响运行：
+#   python -m pip uninstall -y gevent greenlet zope.event zope.interface cffi pycparser
+# ---------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------
+# 五、看起来需要、其实无需 pip 安装的能力
+#
+# · DeepSeek 润色/反推：纯 HTTP 调用，走 requests
+# · 本地 Qwen3-VL 润色：走 ComfyUI 工作流（app/presets/qwen3vl_text_gen.json）
+# · 高清放大：走 ComfyUI 工作流（app/presets/upscale_seedvr2.json）
+# · 会话/作品持久化：纯 JSON 文件（app/store.py，无数据库）
+# · 前端：模板 + 静态文件，无 Node 构建步骤
+# ---------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------
+# 六、依赖 → 功能对照（排障用）
+#
+#   装不上 flask            → 整个应用无法启动
+#   装不上 requests         → 提交任务/查队列/DeepSeek 全挂
+#   装不上 pillow           → 上传接口 500（读取尺寸/EXIF 转正失败）
+#   装不上 websocket-client → 仅进度条与实时节点失效（任务照常跑完）
+# ---------------------------------------------------------------------

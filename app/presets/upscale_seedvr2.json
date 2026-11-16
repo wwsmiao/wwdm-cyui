@@ -1,0 +1,262 @@
+{
+  "681": {
+    "inputs": {
+      "image": "ComfyUI_00001_.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "682": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 2,
+      "image": [
+        "681",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "缩放图像（比例）",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.67"
+    }
+  },
+  "683": {
+    "inputs": {
+      "upscale_method": "nearest-exact",
+      "width": [
+        "689",
+        0
+      ],
+      "height": [
+        "689",
+        1
+      ],
+      "crop": "disabled",
+      "image": [
+        "681",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "缩放图像"
+    }
+  },
+  "684": {
+    "inputs": {
+      "width_factor": 3,
+      "height_factor": 3,
+      "overlap_rate": 0.1,
+      "image": [
+        "683",
+        0
+      ]
+    },
+    "class_type": "TTP_Tile_image_size",
+    "_meta": {
+      "title": "TTP_Tile_image_size",
+      "cnr_id": "comfyui_ttp_toolset",
+      "ver": "1.0.5"
+    }
+  },
+  "685": {
+    "inputs": {
+      "tile_width": [
+        "684",
+        0
+      ],
+      "tile_height": [
+        "684",
+        1
+      ],
+      "image": [
+        "683",
+        0
+      ]
+    },
+    "class_type": "TTP_Image_Tile_Batch",
+    "_meta": {
+      "title": "TTP_Image_Tile_Batch",
+      "cnr_id": "comfyui_ttp_toolset",
+      "ver": "1.0.5"
+    }
+  },
+  "689": {
+    "inputs": {
+      "image": [
+        "682",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "获取图像尺寸"
+    }
+  },
+  "690": {
+    "inputs": {
+      "image": [
+        "685",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "获取图像尺寸"
+    }
+  },
+  "691": {
+    "inputs": {
+      "model": "seedvr2_ema_3b_fp16.safetensors",
+      "device": "cuda:0",
+      "blocks_to_swap": 0,
+      "swap_io_components": false,
+      "offload_device": "cpu",
+      "cache_model": "sdpa",
+      "attention_mode": "sageattn_3"
+    },
+    "class_type": "SeedVR2LoadDiTModel",
+    "_meta": {
+      "title": "SeedVR2 (Down)Load DiT Model",
+      "cnr_id": "seedvr2_videoupscaler",
+      "ver": "2.5.10"
+    }
+  },
+  "692": {
+    "inputs": {
+      "model": "ema_vae_fp16.safetensors",
+      "device": "cuda:0",
+      "encode_tiled": false,
+      "encode_tile_size": 1024,
+      "encode_tile_overlap": 512,
+      "decode_tiled": false,
+      "decode_tile_size": 1024,
+      "decode_tile_overlap": 512,
+      "tile_debug": "false",
+      "offload_device": "none",
+      "cache_model": false
+    },
+    "class_type": "SeedVR2LoadVAEModel",
+    "_meta": {
+      "title": "SeedVR2 (Down)Load VAE Model",
+      "cnr_id": "seedvr2_videoupscaler",
+      "ver": "2.5.10"
+    }
+  },
+  "695": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 0.25,
+      "image": [
+        "685",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "缩放图像（比例）",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.67"
+    }
+  },
+  "696": {
+    "inputs": {
+      "seed": 2794489657,
+      "resolution": 1024,
+      "max_resolution": 0,
+      "batch_size": 1,
+      "uniform_batch_size": false,
+      "color_correction": "lab",
+      "temporal_overlap": 0,
+      "prepend_frames": 0,
+      "input_noise_scale": 0,
+      "latent_noise_scale": 0,
+      "offload_device": "cpu",
+      "enable_debug": false,
+      "image": [
+        "695",
+        0
+      ],
+      "dit": [
+        "691",
+        0
+      ],
+      "vae": [
+        "692",
+        0
+      ]
+    },
+    "class_type": "SeedVR2VideoUpscaler",
+    "_meta": {
+      "title": "SeedVR2 Video Upscaler (v2.5.24)",
+      "cnr_id": "seedvr2_videoupscaler",
+      "ver": "2.5.10"
+    }
+  },
+  "697": {
+    "inputs": {
+      "padding": 512,
+      "tiles": [
+        "698",
+        0
+      ],
+      "positions": [
+        "685",
+        1
+      ],
+      "original_size": [
+        "685",
+        2
+      ],
+      "grid_size": [
+        "685",
+        3
+      ]
+    },
+    "class_type": "TTP_Image_Assy",
+    "_meta": {
+      "title": "TTP_Image_Assy",
+      "cnr_id": "comfyui_ttp_toolset",
+      "ver": "1.0.5"
+    }
+  },
+  "698": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "width": [
+        "690",
+        0
+      ],
+      "height": [
+        "690",
+        1
+      ],
+      "crop": "disabled",
+      "image": [
+        "696",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "缩放图像"
+    }
+  },
+  "699": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "697",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  }
+}
