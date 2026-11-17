@@ -274,6 +274,18 @@
         </div>
 
         <div class="set-card">
+          <h3>④⁺ 低显存机器优化建议（8G 显存）</h3>
+          <ol class="help-list">
+            <li><b>Cache 调优</b>：设置 → 参数 → 把「Cache 设备」改为 <code>cpu</code>（缓存放内存、计算时预取，速度损失很小），「Cache 精度」改为 <code>int8</code>（缓存减半、精度几乎不变）。8G 显存不建议选 <code>off</code>（每步重算，最慢）。</li>
+            <li><b>换 W4A8 版 CLIP（省 3 GB）</b>：下载 <code>qwen3vl_8b_w4a8.safetensors</code> 放进 <code>ComfyUI/models/text_encoders/</code>，刷新模型清单后把「文本编码器」切到它。画质损失极小。</li>
+            <li><b>换 GGUF 量化底模（省 2.8 GB）</b>：见上方 ④，Q4_K_M 约 4.0 GB（int8 版为 6.8 GB）。</li>
+            <li><b>降低像素预算</b>：设置 → 参数 → 「分辨率」选 768（像素量约降 44%，出图明显更快）；需要大图时再单独调高。</li>
+            <li><b>用 5 步方案</b>：采样方案切「Viggle」（标准底模 + 5 步加速 LoRA），比 Turbo 8 步再快一档。</li>
+          </ol>
+          <p class="help-note">默认模型组合（Turbo int8 6.8G + CLIP int8 8.8G ≈ 15.6G）在 8G 显存上靠换页硬扛会很慢；按上面 1~3 步配置后总占用可降到 ~9.5G，配合 Cache 调优即可流畅出图。</p>
+        </div>
+
+        <div class="set-card">
           <h3>⑤ 高清放大模型（SeedVR2） <span id="helpUpState" class="help-flag">检测中…</span></h3>
           <table class="help-table">
             <thead><tr><th>文件</th><th>放到</th><th>大小</th><th>说明</th></tr></thead>
@@ -581,12 +593,6 @@
           <div class="form-row" id="standardOnly2" style="display:none">
             <div class="form-group"><label>采样器</label><select id="p_sampler"></select></div>
             <div class="form-group"><label>调度器</label><select id="p_scheduler"></select></div>
-          </div>
-          <div class="form-row" style="align-items:center">
-            <div class="form-group" style="flex:none">
-              <button class="ghost-btn" id="p_lowvram" title="为 8G 显存机器应用省显存组合">低显存(8G)一键配置</button>
-            </div>
-            <small class="help-muted" style="flex:1">Cache→cpu/int8 · CLIP→W4A8(若有) · 显存紧张的机器专用</small>
           </div>
           <div class="form-row">
             <div class="form-group"><label>Cache 设备</label><select id="p_cache_device"><option>auto</option><option>gpu</option><option>cpu</option><option>off</option></select></div>

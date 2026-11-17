@@ -334,28 +334,6 @@
     $('#drawerClose').addEventListener('click', closeDrawer);
     $('#drawerMask').addEventListener('click', closeDrawer);
     $('#paramsDone').addEventListener('click', saveParams);
-    // 低显存(8G)一键配置：Cache→cpu/int8，CLIP→W4A8（若已安装），并给出后续建议
-    $('#p_lowvram').addEventListener('click', () => {
-      $('#p_cache_device').value = 'cpu';
-      $('#p_cache_dtype').value = 'int8';
-      const clips = (state.catalog && state.catalog.clips) || [];
-      const w4a8 = clips.find(x => /w4a8/i.test(x || ''));
-      let msg = '已配置：Cache 设备→cpu（放内存预取，几乎无损）· Cache 精度→int8（缓存减半）。';
-      if (w4a8) {
-        $('#p_clip').value = w4a8;
-        msg += '\n文本编码器已切换为 W4A8 量化版（' + w4a8 + '，比 int8 版省 3G 显存）。';
-      } else {
-        msg += '\n未检测到 W4A8 版 CLIP（qwen3vl_8b_w4a8.safetensors）：如需再省 3G 显存，可从帮助页模型清单下载并放入 ComfyUI 的 text_encoders 目录。';
-      }
-      const ggufs = (state.catalog && state.catalog.unets_gguf) || [];
-      if (!ggufs.length) {
-        msg += '\n底模仍是 int8 版（6.8G）：想再省 2.8G 可安装 ComfyUI-GGUF 插件并下载 Q4_K_M 底模（见帮助页）。';
-      } else {
-        msg += '\n检测到 GGUF 量化底模，可把「底模 (UNET)」切到 Q4_K_M 再省 2.8G 显存。';
-      }
-      msg += '\n\n点「完成」保存后生效。';
-      confirmDialog(msg);
-    });
     // 独立的图片尺寸卡片
     $('#sizeDone').addEventListener('click', closeSizeCard);
     $('#sizeClose').addEventListener('click', closeSizeCard);
