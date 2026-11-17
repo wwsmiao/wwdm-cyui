@@ -29,6 +29,31 @@
   };
 
   /* ---------------- 基础工具 ---------------- */
+  /* 访问密码相关（顶层作用域：api() 的 401 拦截会调 showAuthModal） */
+  function showAuthModal() {
+    const m = $('#authModal');
+    if (!m) return;
+    m.classList.remove('hidden');
+    const pw = $('#authPw');
+    pw.value = '';
+    setTimeout(() => pw.focus(), 60);
+  }
+  async function doAuthLogin() {
+    const pw = ($('#authPw').value || '').trim();
+    if (!pw) return;
+    try {
+      const r = await post('/api/auth/login', { password: pw });
+      if (r.authed) { $('#authModal').classList.add('hidden'); location.reload(); }
+    } catch (e) { heroNotice('登录失败：' + e.message, 'error'); }
+  }
+  async function refreshAuthState() {
+    try {
+      const r = await api('/api/auth/status');
+      const el = $('#authState');
+      if (el) el.textContent = r.enabled ? '✅ 访问密码已启用（访问本应用需登录）' : '🔒 未启用（仅本机可访问；开放局域网前建议启用）';
+      $('#authSetPw').placeholder = r.enabled ? '输入新密码替换（留空=关闭认证）' : '设置访问密码（≥4 位，留空=关闭）';
+    } catch (e) { /* 静默 */ }
+  }
   async function api(path, opts) {
     const res = await fetch(path, opts);
     let data;
@@ -337,33 +362,9 @@
     $('#drawerMask').addEventListener('click', closeDrawer);
     $('#paramsDone').addEventListener('click', saveParams);
     $('#gallerySearch').addEventListener('input', () => renderGallery());
-    /* 访问密码：登录弹层 + 设置页保存 */
-    function showAuthModal() {
-      const m = $('#authModal');
-      if (!m) return;
-      m.classList.remove('hidden');
-      const pw = $('#authPw');
-      pw.value = '';
-      setTimeout(() => pw.focus(), 60);
-    }
-    async function doAuthLogin() {
-      const pw = ($('#authPw').value || '').trim();
-      if (!pw) return;
-      try {
-        const r = await post('/api/auth/login', { password: pw });
-        if (r.authed) { $('#authModal').classList.add('hidden'); location.reload(); }
-      } catch (e) { heroNotice('登录失败：' + e.message, 'error'); }
-    }
+    /* 访问密码：登录弹层 + 设置页保存（函数体在顶层作用域，供 api() 的 401 拦截调用） */
     $('#authLogin').addEventListener('click', doAuthLogin);
     $('#authPw').addEventListener('keydown', e => { if (e.key === 'Enter') doAuthLogin(); });
-    async function refreshAuthState() {
-      try {
-        const r = await api('/api/auth/status');
-        const el = $('#authState');
-        if (el) el.textContent = r.enabled ? '✅ 访问密码已启用（访问本应用需登录）' : '🔒 未启用（仅本机可访问；开放局域网前建议启用）';
-        $('#authSetPw').placeholder = r.enabled ? '输入新密码替换（留空=关闭认证）' : '设置访问密码（≥4 位，留空=关闭）';
-      } catch (e) { /* 静默 */ }
-    }
     $('#authSetSave').addEventListener('click', async () => {
       const pw = ($('#authSetPw').value || '').trim();
       try {
@@ -373,6 +374,7 @@
         refreshAuthState();
       } catch (e) { heroNotice('保存失败：' + e.message, 'error'); }
     });
+    refreshAuthState();
     refreshAuthState();
     $('#galleryFilter').addEventListener('change', () => renderGallery());
     // 独立的图片尺寸卡片
