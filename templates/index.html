@@ -355,14 +355,6 @@
             <small id="comfyBaseMsg">地址保存在 <code id="configPath">data/config.json</code>，改完即时生效。</small>
           </div>
           <div class="form-group">
-            <label>访问密码 <span class="help-muted">（局域网开放时防误删；留空=不启用，改完点保存）</span></label>
-            <div class="form-row" style="align-items:center">
-              <input type="password" id="authSetPw" class="text-input" style="flex:1" placeholder="新密码（≥4 位，留空=关闭认证）" autocomplete="new-password">
-              <button class="ghost-btn" id="authSetSave" style="flex:none">保存密码</button>
-            </div>
-            <small class="help-muted" id="authState">检测中…</small>
-          </div>
-          <div class="form-group">
             <label>本地目录 <span class="hint">可选。图片选择弹窗靠它列出 ComfyUI 的历史输入图</span></label>
             <div class="addr-row">
               <input type="text" id="p_comfy_dir" placeholder="例如 G:\wwdm-cyui\ComfyUI" spellcheck="false">
@@ -725,18 +717,6 @@
   </div>
 
   <!-- 自定义确认弹窗（替代 js 原生 confirm） -->
-  <!-- 访问密码登录弹层（启用认证后 401 时弹出） -->
-  <div class="modal hidden" id="authModal">
-    <div class="confirm-card">
-      <div class="confirm-text">本应用已启用访问密码，请输入后继续：</div>
-      <input type="password" id="authPw" class="text-input" style="width:100%" placeholder="访问密码"
-             autocomplete="current-password">
-      <div class="confirm-actions">
-        <button class="primary-btn" id="authLogin">登录</button>
-      </div>
-    </div>
-  </div>
-
   <div class="modal hidden" id="confirmModal">
     <div class="confirm-card">
       <div class="confirm-text" id="confirmText"></div>
