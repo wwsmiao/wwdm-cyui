@@ -197,6 +197,9 @@ def bootstrap():
             gallery=store.list_gallery(48),
             pending_jobs=pending_job_ids(),
             gallery_count=len(store.list_gallery(400)),
+            # 真实数据目录：前端文案动态显示（部署目录随电脑而变，不能写死 D:\...）
+            data_dir=DATA_DIR,
+            results_dir=RESULTS_DIR,
         )
     return _guard(run)
 
@@ -988,12 +991,14 @@ def session_add_message(sid):
 
 @bp.route("/api/sessions/batch-delete", methods=["POST"])
 def sessions_batch_delete():
-    """批量删除对话，联动删除这些对话在自由画布 / 图库里的作品。"""
+    """批量删除对话，联动删除这些对话在自由画布 / 图库里的作品（含两处文件）。"""
     def run():
         data = request.get_json(force=True) or {}
         res = store.delete_sessions(data.get("ids") or [])
+        comfy_removed, comfy_failed = _drop_comfy_output(res.get("items") or [])
         return ok(deleted=len(res["sessions"]), gallery_removed=res["gallery"],
-                  sessions_removed=res["sessions"])
+                  sessions_removed=res["sessions"], comfy_removed=comfy_removed,
+                  failed_files=(res.get("failed_files") or []) + comfy_failed)
     return _guard(run)
 
 
@@ -1001,7 +1006,10 @@ def sessions_batch_delete():
 def session_delete(sid):
     def run():
         res = store.delete_session(sid)
-        return ok(deleted=res["session"], gallery_removed=res["gallery"])
+        comfy_removed, comfy_failed = _drop_comfy_output(res.get("items") or [])
+        return ok(deleted=res["session"], gallery_removed=res["gallery"],
+                  comfy_removed=comfy_removed,
+                  failed_files=(res.get("failed_files") or []) + comfy_failed)
     return _guard(run)
 
 
@@ -1022,26 +1030,71 @@ def gallery():
     return _guard(run)
 
 
+def _drop_comfy_output(items):
+    """删除作品在 ComfyUI output 目录下的原图（送 Windows 回收站，可恢复）。
+
+    gallery 条目的 remote / subfolder 记录了 ComfyUI 侧的文件位置
+    （如 output/cyui/17a9f8_00049_.png）。用户要求：图库里删图 = 双侧都删
+    （项目 data/results 副本 + ComfyUI output 原图）。
+
+    comfy_dir 未配置时跳过（记日志）；路径做越界防护，只允许删 output 内的文件。
+    返回 (删除数, failed_files)：失败（文件被占用等）汇总给前端弹窗提示。
+    """
+    base = str(config.get("comfy_dir") or "").strip()
+    if not base:
+        comfy.log("删除作品：未配置 ComfyUI 目录（comfy_dir），跳过 output 原图清理", "WARN")
+        return 0, []
+    out_root = os.path.abspath(os.path.join(base, "output"))
+    n = 0
+    failed = []
+    for it in items or []:
+        remote = str(it.get("remote") or "").strip()
+        sub = str(it.get("subfolder") or "cyui").strip()
+        if not remote:
+            continue
+        # 越界防护：remote / subfolder 都必须是纯相对路径
+        if ".." in remote.replace("\\", "/").split("/") or ".." in sub.replace("\\", "/").split("/"):
+            continue
+        path = os.path.abspath(os.path.join(out_root, sub, remote))
+        if not path.startswith(out_root + os.sep):
+            continue
+        if not os.path.isfile(path):
+            continue                    # 本来就不存在：不算失败，保持安静
+        ok, reason = store.to_recycle_bin(path)
+        if ok:
+            n += 1
+        else:
+            failed.append({"name": remote, "reason": reason})
+            comfy.log("ComfyUI output 文件删除失败（%s）: %s" % (remote, reason or "未知"), "WARN")
+    return n, failed
+
+
 @bp.route("/api/gallery/batch-delete", methods=["POST"])
 def gallery_batch_delete():
-    """批量删除作品：图库 / 画布卡片 + data/results 里的本地图片。
+    """批量删除作品：图库 / 画布卡片 + data/results 副本 + ComfyUI output 原图。
 
-    只删这几张图，不动所属对话，也不碰 ComfyUI 的 output 目录。"""
+    只删这几张图，不动所属对话。"""
     def run():
         data = request.get_json(force=True) or {}
         res = store.delete_gallery_items(data.get("ids") or [])
+        comfy_removed, comfy_failed = _drop_comfy_output(res.get("items") or [])
         return ok(deleted=len(res["gallery"]), gallery_removed=res["gallery"],
-                  files_removed=res["files"], sessions_removed=res["sessions"])
+                  files_removed=res["files"], sessions_removed=res["sessions"],
+                  comfy_removed=comfy_removed,
+                  failed_files=(res.get("failed_files") or []) + comfy_failed)
     return _guard(run)
 
 
 @bp.route("/api/gallery/<gid>", methods=["DELETE"])
 def gallery_delete(gid):
-    """删除单张作品（同 batch-delete：只删图与本地文件，对话保留）"""
+    """删除单张作品（同 batch-delete：只删图与两处文件，对话保留）"""
     def run():
         res = store.delete_gallery_item(gid)
+        comfy_removed, comfy_failed = _drop_comfy_output(res.get("items") or [])
         return ok(deleted=bool(res["gallery"]), gallery_removed=res["gallery"],
-                  files_removed=res["files"], sessions_removed=res["sessions"])
+                  files_removed=res["files"], sessions_removed=res["sessions"],
+                  comfy_removed=comfy_removed,
+                  failed_files=(res.get("failed_files") or []) + comfy_failed)
     return _guard(run)
 
 
@@ -1339,14 +1392,37 @@ def reconcile_pending():
             _finalize(pid)
             j = comfy.job(pid)
             if j and not j.get("finalized") and now - (m.get("ts") or now) > 1200:
-                comfy.patch_job(pid, status="error", error="任务记录已过期", finalized=True)
+                # 任务确实找不回来了（通常是 ComfyUI 侧也重启过，history 已清）
+                try:
+                    comfy.system_stats()
+                    online = True
+                except Exception:
+                    online = False
+                detail = ("ComfyUI 重启过，这个任务的记录已不存在，请重新生成"
+                          if online else "ComfyUI 未连接，无法确认任务状态；重新连接后如仍失败请重新生成")
+                comfy.patch_job(pid, status="error", error=detail, finalized=True)
                 store.update_message(
                     s["id"], m["id"],
-                    {"status": "error", "content": "任务记录已过期（ComfyUI 无此任务），请重新生成"},
+                    {"status": "error", "content": detail},
                 )
 
 
 def start_reconciler():
+    # 启动即恢复：CYUI 重启后，正在生成 / 刚生成完的任务消息还在 pending 状态，
+    # 立刻对账一轮（ComfyUI history 里若仍有结果就能把图收回来），不等第一个 5s 周期
+    def first_pass():
+        try:
+            pend = [m for s in store.list_sessions()
+                    for m in (store.get_session(s["id"]) or {}).get("messages", [])
+                    if m.get("role") == "assistant" and m.get("status") == "pending" and m.get("job_id")]
+            if pend:
+                comfy.log("发现 %d 条未完成任务消息，正在向 ComfyUI 对账恢复…" % len(pend), "INFO")
+                reconcile_pending()
+                comfy.log("未完成任务对账完成", "OK")
+        except Exception as e:
+            comfy.log("启动对账失败: %s" % e, "WARN")
+    threading.Thread(target=first_pass, name="cyui-reconcile-first", daemon=True).start()
+
     def loop():
         while True:
             time.sleep(5)

@@ -52,6 +52,15 @@ cd wwdm-cyui
 - 自动检测缺失的**插件**（自定义节点），给出 ComfyUI-Manager 安装名
 - 照着清单放文件 → 设置页点「刷新模型清单」→ 状态全部变绿即可
 
+## 部署到其它电脑（便携形态）
+
+要把 CYUI 带到另一台 Windows 电脑的 ComfyUI 环境里跑，用仓库 `deploy/` 目录里的便携包方案：
+
+- `deploy/launch.py` + `deploy/start.bat`：一键拉起 ComfyUI + CYUI 并自动开浏览器
+- 仓库根的 `deploy_sync.py`：把代码同步到任意部署目录，自动备份旧文件，**`data/` 永不覆盖**
+
+详见 [deploy/README.md](deploy/README.md)。
+
 ## 数据与更新
 
 - 你的全部数据（对话历史、作品图库、上传图）都在项目的 `data\` 目录里

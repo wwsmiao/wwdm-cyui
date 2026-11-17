@@ -1,16 +1,92 @@
 # -*- coding: utf-8 -*-
 """会话 / 作品持久化（纯 JSON，无数据库依赖）"""
+import io
 import json
 import os
 import re
+import shutil
 import threading
 import time
 import uuid
 
 from . import DATA_DIR, RESULTS_DIR
 
-_FILE = os.path.join(DATA_DIR, "history.json")
+try:
+    from .filelog import write as _flog
+except ImportError:
+    _flog = None
+
+
+def _elog(msg, level="INFO"):
+    """store 关键事件落盘（filelog 独立模块，无循环导入）"""
+    if _flog:
+        try:
+            _flog(msg, level)
+        except Exception:
+            pass
+
+# ---------- 回收站删除 ----------
+# 用户要求：删除图片 = 送 Windows 回收站（可恢复），不做回滚手段。
+# 文件被占用（Windows 文件锁）时删除失败不再静默——返回失败并带原因，
+# 由 routes 汇总进响应，前端弹窗告知用户。
+
+if os.name == "nt":
+    import ctypes
+    from ctypes import wintypes as _wt
+
+    class _SHFILEOPSTRUCTW(ctypes.Structure):
+        _fields_ = [("hwnd", _wt.HWND), ("wFunc", ctypes.c_uint),
+                    ("pFrom", ctypes.c_wchar_p), ("pTo", ctypes.c_wchar_p),
+                    ("fFlags", ctypes.c_ushort), ("fAnyOperationsAborted", _wt.BOOL),
+                    ("hNameMappings", ctypes.c_void_p),
+                    ("lpszProgressTitle", ctypes.c_wchar_p)]
+
+    _FO_DELETE = 3
+    _FOF_ALLOWUNDO = 0x40       # 送回收站（而非直接销毁）
+    _FOF_NOCONFIRMATION = 0x10  # 不弹系统确认
+    _FOF_SILENT = 0x04          # 不显示系统进度框
+    _FOF_NOERRORUI = 0x400      # 失败不弹系统 UI，由返回码自己处理
+
+
+def to_recycle_bin(path):
+    """把单个文件送入 Windows 回收站。
+
+    返回 (True, None) 成功；(False, 原因) 失败——被占用 / 不存在 / 系统拒绝。
+    非 Windows 平台退化为直接删除。
+    """
+    path = str(path or "")
+    if os.name != "nt":
+        try:
+            os.remove(path)
+            return True, None
+        except OSError as e:
+            return False, str(e)
+    if not path or not os.path.isfile(path):
+        return False, "文件不存在"
+    op = _SHFILEOPSTRUCTW()
+    op.hwnd = None
+    op.wFunc = _FO_DELETE
+    op.pFrom = path + '\0'      # 双 NUL 终止路径列表
+    op.pTo = None
+    op.fFlags = _FOF_ALLOWUNDO | _FOF_NOCONFIRMATION | _FOF_SILENT | _FOF_NOERRORUI
+    try:
+        r = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
+    except Exception as e:
+        return False, str(e)[:120]
+    if r == 0 and not op.fAnyOperationsAborted:
+        return True, None
+    if op.fAnyOperationsAborted:
+        return False, "操作被系统中止"
+    # 常见错误码：120=DE_ACCESSDENIEDSRC（被占用/权限），117=DE_OPSOURCEERROR
+    reason = {32: "文件正被其他程序占用", 120: "文件正被其他程序占用",
+              117: "系统删除失败"}.get(r, "系统错误码 %d" % r)
+    return False, reason
+
+_FILE = os.path.join(DATA_DIR, "history.json")          # 旧版单文件（只读迁移来源）
+_SESSIONS_FILE = os.path.join(DATA_DIR, "sessions.json")
+_GALLERY_FILE = os.path.join(DATA_DIR, "gallery.json")
 _LOCK_FILE = os.path.join(DATA_DIR, ".cyui.lock")
+_BACKUP_KEEP = 3                                        # sessions 滚动备份份数
 _lock = threading.Lock()
 _state = {"sessions": [], "gallery": []}
 # 同一份 data 目录只允许一个实例写入：
@@ -61,19 +137,31 @@ def _acquire_instance_lock():
               "不会写入 history.json。需要写入请先关掉另一个实例。", flush=True)
 
 
-def _backup(reason=""):
-    """保存前留一份上一版，出问题还能捞回来"""
+def _backup_sessions():
+    """sessions.json 写盘前做滚动备份（保留最近 _BACKUP_KEEP 份）。
+
+    图库（gallery.json）不备份：用户明确要求「删除就直接删除」，作品的生命周期
+    以用户操作为准，不需要历史回滚；孤儿文件由 init 时的对账机制兜底。
+    """
     try:
-        if os.path.exists(_FILE) and os.path.getsize(_FILE) > 2:
-            bak = _FILE + ".bak"
-            if os.path.exists(bak):
-                try:
-                    os.remove(bak)
-                except Exception:
-                    pass
-            os.replace(_FILE, bak)
+        if not os.path.exists(_SESSIONS_FILE) or os.path.getsize(_SESSIONS_FILE) <= 2:
+            return
+        # 轮换：bak3 ← bak2 ← bak1 ← 当前
+        oldest = "%s.bak%d" % (_SESSIONS_FILE, _BACKUP_KEEP)
+        if os.path.exists(oldest):
+            os.remove(oldest)
+        for i in range(_BACKUP_KEEP - 1, 0, -1):
+            src = "%s.bak%d" % (_SESSIONS_FILE, i)
+            if os.path.exists(src):
+                os.replace(src, "%s.bak%d" % (_SESSIONS_FILE, i + 1))
+        shutil.copy2(_SESSIONS_FILE, _SESSIONS_FILE + ".bak1")
     except Exception as e:
-        print("[store] 备份失败（继续保存）: %s" % e, flush=True)
+        print("[store] sessions 备份失败（继续保存）: %s" % e, flush=True)
+
+
+def _load_json(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def init():
@@ -81,31 +169,131 @@ def init():
     os.makedirs(RESULTS_DIR, exist_ok=True)
     _acquire_instance_lock()
     global _state
-    if os.path.exists(_FILE):
+    legacy_exists = os.path.exists(_FILE)
+    _migrated = False
+    if os.path.exists(_SESSIONS_FILE) or os.path.exists(_GALLERY_FILE):
+        # 新版分文件存储：两份分别加载，一份损坏不影响另一份
+        sessions, gallery = [], []
+        for path, key, label in ((_SESSIONS_FILE, "sessions", "sessions.json"),
+                                 (_GALLERY_FILE, "gallery", "gallery.json")):
+            if not os.path.exists(path):
+                continue
+            try:
+                loaded = _load_json(path).get(key, [])
+                if key == "sessions":
+                    sessions = loaded
+                else:
+                    gallery = loaded
+            except Exception as e:
+                stamp = time.strftime("%Y%m%d-%H%M%S")
+                keep = path + ".corrupt-" + stamp
+                try:
+                    shutil.copyfile(path, keep)
+                except Exception:
+                    keep = "(备份失败)"
+                print("[store] ❌ %s 读取失败（%s），已另存为 %s 后按空数据继续。"
+                      % (label, e, keep), flush=True)
+                _elog("%s 读取失败：已另存 %s" % (label, keep), "ERROR")
+        _state = {"sessions": sessions, "gallery": gallery}
+    elif legacy_exists:
+        # 旧版单文件 → 自动迁移成两个新文件，原文件改名保留
         try:
-            with open(_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            data = _load_json(_FILE)
             _state = {
                 "sessions": data.get("sessions", []),
                 "gallery": data.get("gallery", []),
             }
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            os.replace(_FILE, _FILE + ".migrated-" + stamp)
+            _migrated = True
         except Exception as e:
-            # 不再静默重置：把可疑文件留一份，否则下一次保存就把它彻底覆盖了
             stamp = time.strftime("%Y%m%d-%H%M%S")
             keep = _FILE + ".corrupt-" + stamp
             try:
-                import shutil
                 shutil.copyfile(_FILE, keep)
             except Exception:
                 keep = "(备份失败)"
             print("[store] ❌ history.json 读取失败（%s），已另存为 %s 后按空数据启动。"
                   "若确认原文件完好，请先修复它再启动。" % (e, keep), flush=True)
+            _elog("history.json 读取失败：已另存 %s" % keep, "ERROR")
             _state = {"sessions": [], "gallery": []}
     elif not _READONLY:
         _save(force=True)      # 只读实例连空文件都不要创建，免得和持有锁的实例抢
     global _READY
     _READY = True          # 载入完成，之后才允许写盘
+    if _migrated:
+        # 迁移后立即落盘：旧文件已改名 .migrated-*，此刻崩溃的话数据只存在于内存
+        _save()
+        print("[store] 迁移数据已写入 sessions.json / gallery.json", flush=True)
     _dedupe_gallery()   # 清理历史遗留：前端轮询与后台回收线程竞态造成的重复记录
+    n = reconcile_gallery_files()   # 双向对账：results 里有、索引里没有的图自动恢复显示
+    if n:
+        print("[store] 图库对账：从 data/results 恢复 %d 张未索引图片" % n, flush=True)
+        _elog("图库对账恢复 %d 张孤儿图片" % n, "INFO")
+
+
+# results 目录里认定为图片的扩展名（对账扫描用）
+_IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+
+
+def reconcile_gallery_files():
+    """双向对账（文件 → 图库）：data/results 里存在、但图库索引里没有的图片，
+    自动补进图库显示。
+
+    场景：图库索引被意外清空（文件完好却全不显示）、手工往 results 放图、
+    历史上删索引时文件删除失败留下的孤儿。恢复条目只带最小元数据
+    （文件名 / 修改时间 / 尺寸），prompt 与会话归属已不可考，skill 标为「导入」。
+    返回恢复条数（0 = 无孤儿，不打扰日志）。
+    """
+    try:
+        names = [n for n in os.listdir(RESULTS_DIR)
+                 if os.path.splitext(n)[1].lower() in _IMG_EXTS
+                 and os.path.isfile(os.path.join(RESULTS_DIR, n))]
+    except OSError:
+        return 0
+    if not names:
+        return 0
+    known = set()
+    for g in _state["gallery"]:
+        u = str(g.get("url") or "")
+        if u.startswith("/results/"):
+            known.add(u[len("/results/"):])
+    orphans = [n for n in names if n not in known]
+    if not orphans:
+        return 0
+    try:
+        from PIL import Image
+    except ImportError:
+        Image = None
+    added = []
+    for n in sorted(orphans):
+        p = os.path.join(RESULTS_DIR, n)
+        w = h = 0
+        if Image:
+            try:
+                with Image.open(p) as im:
+                    w, h = im.size
+            except Exception:
+                pass
+        added.append({
+            "id": uuid.uuid4().hex[:10],
+            "url": "/results/" + n,
+            "name": os.path.splitext(n)[0][:32],
+            "skill": "导入",
+            "mode": "",
+            "prompt": "",
+            "params": {},
+            "session_id": "",
+            "ts": os.stat(p).st_mtime,
+            "width": w, "height": h,
+            "x": 0, "y": 0, "scale": 1,
+        })
+    with _lock:
+        _state["gallery"].extend(added)
+        # 按 ts 倒序融入整体时序（与 add_gallery 的 insert(0)「新图在前」语义一致）
+        _state["gallery"].sort(key=lambda g: g.get("ts") or 0, reverse=True)
+        _save()
+    return len(added)
 
 
 def _dedupe_gallery():
@@ -128,33 +316,46 @@ def _dedupe_gallery():
             print("[store] 已清理重复图库记录", flush=True)
 
 
+def _write_json(path, payload):
+    """原子写一个 JSON 文件（临时文件名带 pid：两个实例同时写同一 .tmp 会互相锁住）"""
+    tmp = "%s.%d.tmp" % (path, os.getpid())
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
+
+
 def _save(force=False):
-    """写盘：只读实例跳过；未 init 不写；空状态不许覆盖有内容的文件；写前留 .bak"""
+    """写盘：sessions.json 与 gallery.json 分文件原子写入。
+
+    只读实例跳过；未 init 不写；空状态不许覆盖有内容的文件；
+    sessions 写前滚动备份；gallery 不备份（用户删除即真删）。
+    """
     if _READONLY and not force:
         print("[store] 只读实例，跳过写入（避免覆盖另一个实例的数据）", flush=True)
+        _elog("只读实例跳过写盘（另一实例持锁）", "WARN")
         return False
     if not _READY and not force:
         # 没有 init() 就没有从磁盘载入过真实数据，此处的内存状态是残缺的。
         # 写下去等于把用户所有会话与作品覆盖成半截内容，必须拒绝。
-        print("[store] ⚠ 尚未 init()，拒绝写入（防止未加载状态覆盖 history.json）", flush=True)
+        print("[store] ⚠ 尚未 init()，拒绝写入（防止未加载状态覆盖数据文件）", flush=True)
+        _elog("拒绝写盘：未 init", "WARN")
         return False
     empty = not _state.get("sessions") and not _state.get("gallery")
     if empty and not force:
         # 最后一道保险：内存空了但磁盘上有数据 —— 一定是加载失败或状态异常，
         # 这时候写下去就是「一键清空用户所有会话与作品」
         try:
-            if os.path.exists(_FILE) and os.path.getsize(_FILE) > 64:
-                print("[store] ⚠ 拒绝写入空数据（磁盘上的 history.json 仍有内容），"
-                      "请检查是否为多实例冲突", flush=True)
-                return False
+            for p in (_SESSIONS_FILE, _GALLERY_FILE, _FILE):
+                if os.path.exists(p) and os.path.getsize(p) > 64:
+                    print("[store] ⚠ 拒绝写入空数据（磁盘上 %s 仍有内容），"
+                          "请检查是否为多实例冲突" % os.path.basename(p), flush=True)
+                    _elog("拒绝写盘：空状态保护（磁盘 %s 有内容）" % os.path.basename(p), "WARN")
+                    return False
         except Exception:
             pass
-    _backup()
-    # 临时文件名带 pid：两个实例同时写同一个 .tmp 会在 Windows 上互相锁住文件
-    tmp = "%s.%d.tmp" % (_FILE, os.getpid())
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(_state, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, _FILE)
+    _backup_sessions()
+    _write_json(_SESSIONS_FILE, {"sessions": _state.get("sessions") or []})
+    _write_json(_GALLERY_FILE, {"gallery": _state.get("gallery") or []})
     return True
 
 
@@ -259,11 +460,15 @@ def delete_session(sid):
     with _lock:
         n = len(_state["sessions"])
         _state["sessions"] = [s for s in _state["sessions"] if s["id"] != sid]
-        removed = [g.get("id") for g in _state["gallery"] if g.get("session_id") == sid]
-        if removed:
+        victims = [g for g in _state["gallery"] if g.get("session_id") == sid]
+        if victims:
             _state["gallery"] = [g for g in _state["gallery"] if g.get("session_id") != sid]
-        _save()
-        return {"session": n != len(_state["sessions"]), "gallery": removed}
+            _save()
+        # 联动删除必须落到磁盘：图库里删了，data/results 里的文件也要删（双向对账）
+        for g in victims:
+            _drop_result_file(g.get("url"))
+        return {"session": n != len(_state["sessions"]), "gallery": [g["id"] for g in victims],
+                "items": victims}
 
 
 def delete_sessions(sids):
@@ -274,11 +479,14 @@ def delete_sessions(sids):
     with _lock:
         hit = [s["id"] for s in _state["sessions"] if s["id"] in ids]
         _state["sessions"] = [s for s in _state["sessions"] if s["id"] not in ids]
-        removed = [g.get("id") for g in _state["gallery"] if g.get("session_id") in ids]
-        if removed:
+        victims = [g for g in _state["gallery"] if g.get("session_id") in ids]
+        if victims:
             _state["gallery"] = [g for g in _state["gallery"] if g.get("session_id") not in ids]
-        _save()
-        return {"sessions": hit, "gallery": removed}
+            _save()
+        # 同 delete_session：联动删除落到磁盘，文件一并清掉
+        for g in victims:
+            _drop_result_file(g.get("url"))
+        return {"sessions": hit, "gallery": [g["id"] for g in victims], "items": victims}
 
 
 def rename_session(sid, title):
@@ -296,9 +504,14 @@ def clear_sessions():
     with _lock:
         ids = {s["id"] for s in _state["sessions"]}
         _state["sessions"] = []
-        if ids:
+        victims = [g for g in _state["gallery"] if g.get("session_id") in ids]
+        if victims:
             _state["gallery"] = [g for g in _state["gallery"] if g.get("session_id") not in ids]
         _save()
+        # 清空对话的联动删除同样落到磁盘
+        for g in victims:
+            _drop_result_file(g.get("url"))
+        return {"sessions": len(ids), "gallery": [g["id"] for g in victims], "items": victims}
 
 
 def add_gallery(items):
@@ -336,23 +549,26 @@ _AUTO_DONE_TEXT = re.compile(r"^(生成完成|高清放大完成|批量处理完
 
 
 def _drop_result_file(url):
-    """删除 data/results 下的本地副本（ComfyUI 自己 output 目录里的原图不动）"""
+    """删除 data/results 下的本地副本（送 Windows 回收站，可恢复）。
+
+    返回 (ok, failed_name, reason)：失败时 failed_name 为文件名、reason 给前端提示。
+    """
     u = str(url or "")
     prefix = "/results/"
     if not u.startswith(prefix):
-        return False
+        return False, None, None
     name = u[len(prefix):]
     # 只接受纯文件名：带子目录、.. 、查询串的一律不动手，避免越界删除
     if not name or name != os.path.basename(name) or ".." in name:
-        return False
+        return False, None, None
     path = os.path.join(RESULTS_DIR, name)
-    try:
-        if os.path.isfile(path):
-            os.remove(path)
-            return True
-    except OSError:
-        pass
-    return False
+    if not os.path.isfile(path):
+        return True, None, None            # 本来就不在：视为成功
+    ok, reason = to_recycle_bin(path)
+    if ok:
+        return True, None, None
+    _elog("results 文件删除失败（%s）: %s" % (name, reason), "WARN")
+    return False, name, reason
 
 
 def delete_gallery_item(gid):
@@ -404,8 +620,16 @@ def delete_gallery_items(gids):
                 s["updated_at"] = time.time()
         _save()
 
-    files = [u for u in urls if _drop_result_file(u)]
-    return {"gallery": removed, "files": files, "sessions": []}
+    failed = []
+    files = []
+    for u in urls:
+        ok, fname, reason = _drop_result_file(u)
+        if ok:
+            files.append(u)
+        elif fname:
+            failed.append({"name": fname, "reason": reason})
+    return {"gallery": removed, "files": files, "sessions": [], "items": hit,
+            "failed_files": failed}
 
 
 # 允许前端改写的白名单字段，避免把 url / prompt_id 等结构字段覆盖掉

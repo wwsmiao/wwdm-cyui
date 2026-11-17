@@ -951,6 +951,7 @@ def submit_generation(prompt, mode="text2img", images=None, params=None, title=N
     errs = workflows.validate(cfg)
     if errs:
         raise AssistantError("；".join(errs))
+
     s = workflows.skill(cfg["mode"])
     sid = store.ensure_session(session_id or _CTX_SESSION or None,
                                title or (prompt[:24] if prompt else s["name"]))

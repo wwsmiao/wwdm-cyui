@@ -152,6 +152,10 @@ a { color: var(--accent); cursor: pointer; text-decoration: none; }
 .topbar {
   height: 54px; flex: 0 0 54px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between; padding: 0 22px;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(20,21,26,0.880); -webkit-backdrop-filter: blur(12px);
+  background: rgba(20,21,26,0.880); backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter: blur(12px);
   background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px);
 }
 .crumb { font-size: 13px; color: var(--muted); }
@@ -180,6 +184,8 @@ a { color: var(--accent); cursor: pointer; text-decoration: none; }
 .hero-notice {
   position: fixed; top: 62px; right: 22px; z-index: 92;
   max-width: 340px; padding: 7px 13px; border-radius: 9px;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(35,38,49,0.920);
   background: color-mix(in srgb, var(--panel-2) 92%, transparent);
   border: 1px solid var(--border-strong); color: var(--accent-2);
   font-size: 12px; font-weight: 600; box-shadow: var(--shadow);
@@ -261,7 +267,9 @@ a { color: var(--accent); cursor: pointer; text-decoration: none; }
 .skill-card {
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
   cursor: pointer; transition: .2s; text-align: left; padding: 0; display: flex; flex-direction: column;
+  min-width: 0; width: 100%; -webkit-appearance: none; appearance: none;  /* Safari button 内 flex 兼容 */
 }
+.skill-body, .skill-cover { min-width: 0; }
 .skill-card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: var(--shadow); }
 .skill-cover { height: 104px; position: relative; overflow: hidden; display: grid; place-items: center; }
 .skill-cover::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(circle at 25% 20%, rgba(255,255,255,.22), transparent 45%), linear-gradient(120deg, rgba(0,0,0,.05), rgba(0,0,0,.32)); }
@@ -371,7 +379,11 @@ a { color: var(--accent); cursor: pointer; text-decoration: none; }
   font-size: 10.5px; font-weight: 500; color: var(--muted);
   background: var(--panel-2); border: 1px solid var(--border); border-radius: 20px; padding: 2px 10px;
 }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+.help-flag.ok { color: var(--ok); border-color: rgba(79,209,165,0.400); }
 .help-flag.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+.help-flag.bad { color: var(--danger); border-color: rgba(255,107,125,0.400); }
 .help-flag.bad { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 .help-state { font-size: 11px; white-space: nowrap; }
 .help-state.ok { color: var(--ok); }
@@ -381,12 +393,22 @@ a { color: var(--accent); cursor: pointer; text-decoration: none; }
 #accelHint {
   display: block; margin-top: 4px; font-size: 11px; line-height: 1.6;
   padding: 4px 8px; border-radius: 6px;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  border: 1px solid rgba(255,255,255,0.085);
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
 }
 #accelHint.hidden { display: none; }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+#accelHint.accel-ok { color: var(--ok); border-color: rgba(79,209,165,0.350); background: rgba(79,209,165,0.080); }
 #accelHint.accel-ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); background: color-mix(in srgb, var(--ok) 8%, transparent); }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+#accelHint.accel-busy { color: var(--accent); border-color: rgba(141,123,255,0.350); background: rgba(141,123,255,0.080); }
 #accelHint.accel-busy { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+#accelHint.accel-warn { color: #d6913a; border-color: rgba(214,145,58,0.400); background: rgba(214,145,58,0.080); }
 #accelHint.accel-warn { color: #d6913a; border-color: color-mix(in srgb, #d6913a 40%, transparent); background: color-mix(in srgb, #d6913a 8%, transparent); }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+#accelHint.accel-bad { color: var(--danger); border-color: rgba(255,107,125,0.350); background: rgba(255,107,125,0.080); }
 #accelHint.accel-bad { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); background: color-mix(in srgb, var(--danger) 8%, transparent); }
 
 /* 采样方案卡片：三选一，每张直接写明「几步 + 要什么底模」，
@@ -398,17 +420,25 @@ a { color: var(--accent); cursor: pointer; text-decoration: none; }
   border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
   transition: border-color .15s, background .15s;
 }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+.samp-card:hover { border-color: var(--accent)); color: var(--text); }
 .samp-card:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); color: var(--text); }
 .samp-card.active {
   border-color: var(--accent); background: var(--accent-soft); color: var(--text);
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  box-shadow: inset 0 0 0 1px rgba(141,123,255,0.450);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .samp-card b { font-size: 12.5px; font-weight: 650; letter-spacing: .2px; }
 .samp-card em {
   font-style: normal; font-size: 10.5px; font-weight: 600; padding: 0 6px;
   border-radius: 999px; line-height: 16px; color: var(--accent);
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(141,123,255,0.140);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+.samp-card.active em { background: rgba(141,123,255,0.260); }
 .samp-card.active em { background: color-mix(in srgb, var(--accent) 26%, transparent); }
 .samp-card span { font-size: 10.5px; line-height: 1.35; color: var(--muted-2); }
 .samp-card.active span { color: var(--muted); }
@@ -417,7 +447,11 @@ a { color: var(--accent); cursor: pointer; text-decoration: none; }
 #unetWarn {
   display: block; margin-top: 4px; font-size: 11px; line-height: 1.6;
   padding: 5px 8px; border-radius: 6px;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  color: #d6913a; border: 1px solid rgba(214,145,58,0.400);
   color: #d6913a; border: 1px solid color-mix(in srgb, #d6913a 40%, transparent);
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(214,145,58,0.080);
   background: color-mix(in srgb, #d6913a 8%, transparent);
 }
 #unetWarn.hidden { display: none; }
@@ -455,7 +489,11 @@ a { color: var(--accent); cursor: pointer; text-decoration: none; }
 }
 /* 帮助页插件卡：节点清单小标签（缺红 / 有绿） */
 .node-chip { display: inline-block; margin: 2px 3px 2px 0; font-size: 10.5px; }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+.node-chip.ok { color: var(--ok); border-color: rgba(79,209,165,0.450); }
 .node-chip.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+.node-chip.bad { color: var(--danger); border-color: rgba(255,107,125,0.450); }
 .node-chip.bad { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
 .addr-row { display: flex; gap: 8px; }
 .addr-row input {
@@ -712,7 +750,10 @@ a.update-link.off { opacity: .55; pointer-events: none; }
 }
 .cv-bar {
   position: absolute; top: 14px; z-index: 6; display: flex; align-items: center; gap: 6px;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(27,29,37,0.920); border: 1px solid var(--border-strong);
   background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--border-strong);
+  border-radius: 12px; padding: 5px 8px; box-shadow: var(--shadow); -webkit-backdrop-filter: blur(12px);
   border-radius: 12px; padding: 5px 8px; box-shadow: var(--shadow); backdrop-filter: blur(12px);
 }
 .cv-topleft { left: 16px; }
@@ -745,8 +786,11 @@ a.update-link.off { opacity: .55; pointer-events: none; }
 }
 .cv-seldock {
   position: fixed; z-index: 34; display: flex; align-items: center; gap: 2px;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(27,29,37,0.940);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   border: 1px solid var(--border-strong); border-radius: 13px;
+  padding: 5px 7px; box-shadow: var(--shadow); -webkit-backdrop-filter: blur(12px);
   padding: 5px 7px; box-shadow: var(--shadow); backdrop-filter: blur(12px);
 }
 .dock-count { font-size: 11px; color: var(--muted); padding: 0 8px; white-space: nowrap; }
@@ -833,20 +877,30 @@ a.update-link.off { opacity: .55; pointer-events: none; }
 .cv-compose.collapsed { width: auto; bottom: 22px; }
 .cv-compose.collapsed #composerCanvas { display: none; }
 .cv-compose.collapsed .cv-fold em { transform: rotate(180deg); }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+.cv-compose .composer-box { background: rgba(27,29,37,0.940); -webkit-backdrop-filter: blur(14px); }
+.cv-compose .composer-box { background: rgba(27,29,37,0.940); backdrop-filter: blur(14px); }
+.cv-compose .composer-box { background: color-mix(in srgb, var(--panel) 94%, transparent); -webkit-backdrop-filter: blur(14px); }
 .cv-compose .composer-box { background: color-mix(in srgb, var(--panel) 94%, transparent); backdrop-filter: blur(14px); }
 .cv-hint {
   position: absolute; left: 16px; bottom: 13px; z-index: 5; pointer-events: none;
   font-size: 10.5px; color: var(--muted); padding: 5px 10px; border-radius: 8px;
   max-width: 300px; line-height: 1.6;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  border: 1px solid var(--border); background: rgba(27,29,37,0.880);
   border: 1px solid var(--border); background: color-mix(in srgb, var(--panel) 88%, transparent);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 
 /* ---------- 全局统一进度条（对话 / 画布共用） ---------- */
 .global-progress {
   position: fixed; top: 62px; right: 16px; z-index: 45; width: 236px;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(27,29,37,0.940);
   background: color-mix(in srgb, var(--panel) 94%, transparent);
   border: 1px solid var(--border-strong); border-radius: 12px; padding: 10px 13px;
+  box-shadow: var(--shadow); -webkit-backdrop-filter: blur(12px);
   box-shadow: var(--shadow); backdrop-filter: blur(12px);
 }
 .global-progress .gp-head { font-size: 11.5px; color: var(--accent); margin-bottom: 7px; }
@@ -1124,6 +1178,8 @@ a.update-link.off { opacity: .55; pointer-events: none; }
 .pc-tag {
   border: 0; background: none; padding: 3px 5px; line-height: 1.6;
   white-space: nowrap; cursor: pointer; border-radius: 7px;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  color: var(--text)));
   color: color-mix(in srgb, var(--text) 58%, var(--tint, var(--muted)));
   transform: translateY(var(--dy, 0)) rotate(var(--rot, 0deg));
   transition: color .18s, opacity .18s, background .18s;
@@ -1154,6 +1210,8 @@ a.update-link.off { opacity: .55; pointer-events: none; }
 /* 参数抽屉 / 尺寸卡片等浮层打开时把悬浮球淡出：
    它的 z-index 是 80，比抽屉的 41 高，会盖住抽屉右下角的内容（表格最后一列就被它挡过） */
 .ai-fab { transition: opacity .18s ease; }
+/* 降级：JS 同步的 body.has-overlay（兼容不支持 :has() 的 Firefox<121 / 旧 Safari） */
+body.has-overlay .ai-fab { opacity: 0; pointer-events: none; }
 body:has(.drawer.open) .ai-fab,
 body:has(.size-card:not(.hidden)) .ai-fab,
 body:has(.pick-card:not(.hidden)) .ai-fab,
@@ -1167,7 +1225,10 @@ body:has(.modal:not(.hidden)) .ai-fab { opacity: 0; pointer-events: none; }
   width: min(460px, 100vw); height: 100vh; height: 100dvh;
   display: flex; flex-direction: column; overflow: hidden;
   border: 0; border-left: 1px solid var(--border-strong); border-radius: 18px 0 0 18px;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(27,29,37,0.900);
   background: color-mix(in srgb, var(--panel) 90%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
   backdrop-filter: blur(24px) saturate(1.2);
   box-shadow: -24px 0 64px rgba(0, 0, 0, .5);
   animation: aiIn .24s cubic-bezier(.2, .8, .2, 1);
@@ -1248,12 +1309,16 @@ body:has(.modal:not(.hidden)) .ai-fab { opacity: 0; pointer-events: none; }
 .ai-logo {
   width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center;
   border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  color: #fff; font-size: 15px; box-shadow: 0 4px 14px rgba(141,123,255,0.380);
   color: #fff; font-size: 15px; box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 38%, transparent);
 }
 .ai-brand-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ai-brand-txt b { font-size: 13px; font-weight: 600; color: var(--text); }
 .ai-brand-txt small { display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--muted-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ai-dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: var(--muted-2); }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+.ai-status-ok .ai-dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(79,209,165,0.200); }
 .ai-status-ok .ai-dot { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
 .ai-acts { display: flex; gap: 3px; flex: 0 0 auto; }
 .ai-acts button {
@@ -1281,6 +1346,8 @@ body:has(.modal:not(.hidden)) .ai-fab { opacity: 0; pointer-events: none; }
   border: 1px solid var(--border); border-radius: 11px; background: var(--panel-2);
 }
 .ai-hist-item.active { border-color: var(--accent); background: var(--accent-soft); }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+.ai-hist-item.picked { border-color: var(--accent)); }
 .ai-hist-item.picked { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
 .ai-hist-item > input { flex: 0 0 auto; width: 13px; height: 13px; }
 .ai-hist-main { flex: 1; min-width: 0; cursor: pointer; }
@@ -1308,13 +1375,19 @@ body:has(.modal:not(.hidden)) .ai-fab { opacity: 0; pointer-events: none; }
 }
 .ai-msg.ai-bot { align-self: flex-start; width: 100%; max-width: 100%; color: var(--text); padding: 0; }
 .ai-msg.ai-bot.error {
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(255,107,125,0.100);
   background: color-mix(in srgb, var(--danger) 10%, transparent);
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  border: 1px solid rgba(255,107,125,0.450);
   border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
   border-radius: 11px; padding: 9px 12px; color: var(--danger);
 }
 .ai-steps {
   align-self: flex-start; width: 100%; margin-top: 2px;
   border: 1px solid var(--border); border-radius: 10px;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(35,38,49,0.550); padding: 8px 11px;
   background: color-mix(in srgb, var(--panel-2) 55%, transparent); padding: 8px 11px;
 }
 .ai-steps > b { display: block; font-size: 10px; font-weight: 500; color: var(--muted-2); letter-spacing: .6px; margin-bottom: 4px; }
@@ -1356,6 +1429,8 @@ body:has(.modal:not(.hidden)) .ai-fab { opacity: 0; pointer-events: none; }
 .ai-attach-card {
   position: relative; display: flex; align-items: center; gap: 8px; width: 186px;
   padding: 6px; border: 1px solid var(--border-strong); border-radius: 11px;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(35,38,49,0.800); cursor: zoom-in;
   background: color-mix(in srgb, var(--panel-2) 80%, transparent); cursor: zoom-in;
 }
 .ai-attach-card:hover { border-color: var(--accent); }
@@ -1377,6 +1452,8 @@ body:has(.modal:not(.hidden)) .ai-fab { opacity: 0; pointer-events: none; }
 /* 底部：整块输入框 + 工具行 + 圆形发送 */
 .ai-foot {
   flex: 0 0 auto; padding: 11px 14px 14px; border-top: 1px solid var(--border);
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(27,29,37,0.600);
   background: color-mix(in srgb, var(--panel) 60%, transparent);
 }
 #aiInput {
@@ -1398,6 +1475,8 @@ body:has(.modal:not(.hidden)) .ai-fab { opacity: 0; pointer-events: none; }
   width: 32px; height: 32px; flex: 0 0 32px; border: 0; border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: #fff; font-size: 16px; line-height: 1;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  box-shadow: 0 5px 16px rgba(141,123,255,0.400);
   box-shadow: 0 5px 16px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .ai-send:hover { filter: brightness(1.12); }
@@ -1421,11 +1500,12 @@ body:has(.modal:not(.hidden)) .ai-fab { opacity: 0; pointer-events: none; }
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px;
   max-width: 1180px; margin: 0 auto; padding: 0 28px;
 }
-@media (max-width: 1100px) { .ai-skill-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 720px) { .ai-skill-grid { grid-template-columns: 1fr; } }
+/* 断点与 .skill-grid 严格一致（1080/760），否则中间宽度下两排卡片列数打架 */
+@media (max-width: 1080px) { .ai-skill-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .ai-skill-grid { grid-template-columns: 1fr; } }
 .ai-skill-card {
   border: 1px solid var(--border); border-radius: 12px; background: var(--panel);
-  padding: 12px 13px; display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 13px; display: flex; flex-direction: column; gap: 6px; min-width: 0;
 }
 .ai-skill-card b { font-size: 12.5px; color: var(--text); font-weight: 600; }
 .ai-skill-card .asc-cat {
@@ -1457,6 +1537,8 @@ body:has(.modal:not(.hidden)) .ai-fab { opacity: 0; pointer-events: none; }
 
 /* 忙碌时发送键变停止键（■） */
 .ai-send.stop { background: var(--danger); }
+/* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+.ai-send.stop:hover { background: var(--danger); }
 .ai-send.stop:hover { background: color-mix(in srgb, var(--danger) 82%, #000); }
 
 /* 拖图片进对话框时的落点提示 */
@@ -1465,6 +1547,8 @@ body:has(.modal:not(.hidden)) .ai-fab { opacity: 0; pointer-events: none; }
 .ai-drop-hint {
   position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 3;
   padding: 7px 14px; border-radius: 20px; font-size: 11px; color: #fff;
+  /* 降级：旧浏览器不支持 color-mix 时用下行近似值 */
+  background: rgba(141,123,255,0.880);
   background: color-mix(in srgb, var(--accent) 88%, transparent);
   box-shadow: 0 8px 24px rgba(0,0,0,.35); pointer-events: none;
 }

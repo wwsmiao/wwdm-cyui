@@ -192,7 +192,7 @@
     <!-- 图库 -->
     <section class="view hidden" id="viewGallery">
       <div class="page-head">
-        <h1>作品图库</h1><p>所有生成结果都保存在 D:\wwdm-cyui\data\results · 勾选后可批量删除或发送到图片编辑，点名称可改名</p>
+        <h1>作品图库</h1><p>所有生成结果都保存在 <code id="resultsPath">data/results</code> · 勾选后可批量删除或发送到图片编辑，点名称可改名</p>
         <div class="head-actions">
           <span class="g-selinfo" id="gallerySelInfo">未选择</span>
           <button class="ghost-btn" id="gallerySelectAll">全选</button>
@@ -255,7 +255,7 @@
               <tr><td>LoRA 风格模型</td><td><code>ComfyUI/models/loras/</code><br><span class="help-muted">支持子目录，如 qw2.1-xxx/xxx.safetensors</span></td><td>参数 → LoRA / 输入框「⭐ LoRA」</td></tr>
               <tr><td>高清放大模型（SeedVR2）</td><td><code>ComfyUI/models/SEEDVR2/</code></td><td>全局设置 → 高清放大</td></tr>
               <tr><td>上传的参考图</td><td><code>ComfyUI/input/</code></td><td>自动写入，无需手动放</td></tr>
-              <tr><td>生成结果</td><td><code>ComfyUI/output/cyui/</code><br><span class="help-muted">本应用会另存一份到 D:\wwdm-cyui\data\results</span></td><td>作品图库 / 自由画布</td></tr>
+              <tr><td>生成结果</td><td><code>ComfyUI/output/cyui/</code><br><span class="help-muted">本应用会另存一份到 <code id="resultsPathHelp">data/results</code></span></td><td>作品图库 / 自由画布</td></tr>
             </tbody>
           </table>
         </div>
@@ -331,7 +331,7 @@
               <input type="text" id="p_comfy_base" placeholder="http://127.0.0.1:8188" spellcheck="false">
               <button class="primary-btn" id="comfySave">保存</button>
             </div>
-            <small id="comfyBaseMsg">地址保存在 D:\wwdm-cyui\data\config.json，改完即时生效。</small>
+            <small id="comfyBaseMsg">地址保存在 <code id="configPath">data/config.json</code>，改完即时生效。</small>
           </div>
           <div class="form-group">
             <label>本地目录 <span class="hint">可选。图片选择弹窗靠它列出 ComfyUI 的历史输入图</span></label>

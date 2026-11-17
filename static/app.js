@@ -215,8 +215,26 @@
       if (saved.canvas_gap != null && saved.canvas_gap_x == null && saved.canvas_gap_y == null) {
         state.params.canvas_gap_x = state.params.canvas_gap_y = Number(saved.canvas_gap) || 28;
       }
+      // 真实数据目录随部署位置而变：页面文案统一用后端下发的绝对路径填充
+      if (r.results_dir) {
+        $('#resultsPath') && ($('#resultsPath').textContent = r.results_dir);
+        $('#resultsPathHelp') && ($('#resultsPathHelp').textContent = r.results_dir);
+      }
+      if (r.data_dir) {
+        $('#configPath') && ($('#configPath').textContent = r.data_dir + '\\config.json');
+      }
       try { state.cloudOpen = localStorage.getItem('cyui_cloud') !== '0'; } catch (e) { state.cloudOpen = true; }
-      state.loras = Array.isArray(saved.__loras) ? saved.__loras : [];
+      // 只保留 ComfyUI 当前清单里还存在的 LoRA：避免 localStorage 里的幽灵 LoRA
+      // （AI 编造的名字 / 后来卸载的模型）每次生成都让 ComfyUI 校验失败。
+      const loraPool = (state.catalog || {}).loras || [];
+      const savedLoras = Array.isArray(saved.__loras) ? saved.__loras : [];
+      state.loras = loraPool.length
+        ? savedLoras.filter(l => loraPool.includes(l && l.name))
+        : savedLoras;
+      if (state.loras.length !== savedLoras.length) {
+        heroNotice('已清除 ' + (savedLoras.length - state.loras.length) + ' 个失效 LoRA（模型清单里已不存在）', 'warn');
+        persistParams();
+      }
       $('#heroModel').textContent = state.online ? 'Turbo 权重 · CLIP · VAE 已就绪' : 'ComfyUI 未连接';
     } catch (e) {
       heroNotice('初始化失败：' + e.message, 'error');
@@ -277,6 +295,18 @@
     refreshStatus();                    // 首次拉连接状态与日志
     setInterval(refreshStatus, 15000);  // 兜底同步：结果回收、队列、日志
     setInterval(pollJobs, 1200);        // 生成进度轮询
+    /* 浮层状态同步：给 body 打 has-overlay 标记，供不支持 CSS :has() 的浏览器
+       （Firefox < 121 / 旧 Safari）隐藏悬浮球，避免它盖住抽屉右下角。 */
+    function syncOverlayFlag() {
+      const on = !!(document.querySelector('.drawer.open, .size-card:not(.hidden), .pick-card:not(.hidden), .modal:not(.hidden)'));
+      document.body.classList.toggle('has-overlay', on);
+    }
+    if (window.MutationObserver) {
+      new MutationObserver(syncOverlayFlag).observe(document.body, {
+        subtree: true, attributes: true, attributeFilter: ['class']
+      });
+    }
+    syncOverlayFlag();
   }
 
   function applyTheme(t) {
@@ -2251,7 +2281,8 @@
     try {
       const r = await post('/api/sessions/batch-delete', { ids });
       await applyLinkedDeletion(r);
-      heroNotice('已删除 ' + (r.deleted || ids.length) + ' 个对话');
+      heroNotice('已删除 ' + (r.deleted || ids.length) + ' 个对话（相关图片文件已移入回收站）');
+      notifyDeleteFailed(r);
     } catch (e) { heroNotice('删除失败：' + e.message, 'error'); }
   }
 
@@ -2375,16 +2406,26 @@
       heroNotice('已把 ' + uploaded.length + ' 张放进参考图，继续描述修改内容');
     } catch (err) { heroNotice('发送失败：' + err.message, 'error'); }
   }
+  /* 删除后的统一提示：文件被占用未删成功时弹窗告知（其余已进 Windows 回收站） */
+  function notifyDeleteFailed(r) {
+    const f = (r && r.failed_files) || [];
+    if (!f.length) return;
+    const names = f.slice(0, 5).map(x => '· ' + (x.name || x)).join('\n') + (f.length > 5 ? '\n· …' : '');
+    confirmDialog('有 ' + f.length + ' 个文件正被其他程序占用，本次未能删除：\n' + names +
+      '\n\n它们仍留在原目录，关闭占用程序（如看图软件 / 资源管理器预览）后重试即可。',
+      '部分文件未删除');
+  }
   async function deleteGallerySelection() {
     const ids = Array.from(state.gallerySelection || []);
     if (!ids.length) return heroNotice('请先勾选要删除的图片', 'error');
-    if (!(await confirmDialog('删除所选的 ' + ids.length + ' 张图片？\n只删除这些图（含 data/results 里的本地文件），不影响 ComfyUI 的输出，也不动对话记录。'))) return;
+    if (!(await confirmDialog('删除所选的 ' + ids.length + ' 张图片？\n图片文件将移入 Windows 回收站（可随时恢复），不影响对话记录。'))) return;
     try {
       const r = await post('/api/gallery/batch-delete', { ids });
       state.gallerySelection.clear();
       state.lastGalleryCount = Math.max(0, (state.lastGalleryCount || ids.length) - ids.length);
       await applyLinkedDeletion(r);
-      heroNotice('已删除 ' + (r.deleted || ids.length) + ' 张（对话记录保留）');
+      heroNotice('已删除 ' + (r.deleted || ids.length) + ' 张（文件已移入回收站，对话记录保留）');
+      notifyDeleteFailed(r);
     } catch (e) { heroNotice('删除失败：' + e.message, 'error'); }
   }
   function startGalleryRename(nameEl) {
@@ -3381,11 +3422,12 @@
         document.body.appendChild(a); a.click(); a.remove();
         heroNotice('已开始下载');
       } else if (act === 'delete') {
-        if (!(await confirmDialog('删除「' + (g.name || '作品') + '」？\n只删除这张图（含 data/results 里的本地文件），不影响 ComfyUI 的输出，也不动对话记录。'))) return;
+        if (!(await confirmDialog('删除「' + (g.name || '作品') + '」？\n图片文件将移入 Windows 回收站（可随时恢复），不影响对话记录。'))) return;
         const r = await api('/api/gallery/' + encodeURIComponent(g.id), { method: 'DELETE' });
         state.lastGalleryCount = Math.max(0, (state.lastGalleryCount || 1) - 1);
         await applyLinkedDeletion(r);
-        heroNotice('已删除');
+        heroNotice('已删除（文件已移入回收站）');
+        notifyDeleteFailed(r);
       } else if (act === 'rename') {
         startRename(card, g);
       }
@@ -3529,13 +3571,14 @@
   async function deleteSelection() {
     const ids = Array.from(state.canvasSelection);
     if (!ids.length) return;
-    if (!(await confirmDialog('移除画布上选中的 ' + ids.length + ' 张图片？\n只删除这些图（含 data/results 里的本地文件），不影响 ComfyUI 的输出，也不动对话记录。'))) return;
+    if (!(await confirmDialog('移除画布上选中的 ' + ids.length + ' 张图片？\n图片文件将移入 Windows 回收站（可随时恢复），不影响对话记录。'))) return;
     try {
       const r = await post('/api/gallery/batch-delete', { ids });
       state.lastGalleryCount = Math.max(0, (state.lastGalleryCount || ids.length) - ids.length);
       state.canvasSelection.clear();
       await applyLinkedDeletion(r);
-      heroNotice('已移除 ' + (r.deleted || ids.length) + ' 张（对话记录保留）');
+      heroNotice('已移除 ' + (r.deleted || ids.length) + ' 张（文件已移入回收站，对话记录保留）');
+      notifyDeleteFailed(r);
     } catch (e) { heroNotice('删除失败：' + e.message, 'error'); }
   }
 
@@ -3846,6 +3889,7 @@
       arr.forEach(id => delete AI_MSG_MAP[id]);
       AI_HIST_SEL.clear();
       await applyLinkedDeletion(r);     // 会话 / 图库 / 画布 + AI 面板一起刷新
+      notifyDeleteFailed(r);
       aiSave(); aiRenderHistory(); aiRender(); aiRenderAttach(); aiUpdateHeader();
     } catch (e) { heroNotice('删除对话失败：' + e.message, 'error'); }
   }
@@ -4778,8 +4822,12 @@
       if (del) {
         const id = del.dataset.aiDel;
         const c = (state.sessions || []).find(x => x.id === id) || {};
-        if (!(await confirmDialog('删除历史对话「' + (c.title || '新对话') + '」？'))) return;
-        await aiDeleteChats([id]); heroNotice('对话已删除');
+        // 删会话会连带删除它在图库/画布的作品（store.delete_session 联动），
+        // 确认弹窗必须明说，否则用户清个对话就把作品库清没了（真实事故：45 张图连带被删）
+        const n = (state.gallery || []).filter(g => g.session_id === id).length;
+        if (!(await confirmDialog('删除历史对话「' + (c.title || '新对话') + '」？'
+            + (n ? '\n⚠ 该对话名下有 ' + n + ' 张作品图，将一并删除（含本地文件）！' : '')))) return;
+        await aiDeleteChats([id]); heroNotice('对话已删除' + (n ? '（连带删除 ' + n + ' 张作品）' : ''));
         return;
       }
       const open = e.target.closest('[data-ai-open]');
@@ -4808,8 +4856,11 @@
     $('#aiHistDelSel').addEventListener('click', async () => {
       const ids = Array.from(AI_HIST_SEL);
       if (!ids.length) return heroNotice('请先勾选历史对话', 'error');
-      if (!(await confirmDialog('删除选中的 ' + ids.length + ' 个历史对话？'))) return;
-      await aiDeleteChats(ids); heroNotice('已删除 ' + ids.length + ' 个对话');
+      // 与单条删除同样的连带删除警告（删会话会连带删它名下的作品图）
+      const n = (state.gallery || []).filter(g => ids.includes(g.session_id)).length;
+      if (!(await confirmDialog('删除选中的 ' + ids.length + ' 个历史对话？'
+          + (n ? '\n⚠ 这些对话名下共有 ' + n + ' 张作品图，将一并删除（含本地文件）！' : '')))) return;
+      await aiDeleteChats(ids); heroNotice('已删除 ' + ids.length + ' 个对话' + (n ? '（连带删除 ' + n + ' 张作品）' : ''));
     });
 
     // 忙碌时发送键 = 停止键：点击截断 AI 思考 / 工具执行

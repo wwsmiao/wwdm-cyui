@@ -257,30 +257,40 @@ def _run(wf, label):
     comfy.log("%s任务提交 %s" % (label, pid[:8]), "INFO")
 
     deadline = time.time() + TIMEOUT
-    while time.time() < deadline:
-        time.sleep(1)
+    try:
+        while time.time() < deadline:
+            time.sleep(1)
+            try:
+                hist = comfy.history(pid)
+            except Exception:
+                continue
+            rec = (hist or {}).get(pid)
+            if not rec:
+                continue
+            st = rec.get("status") or {}
+            if st.get("status_str") == "error" or st.get("completed") is False:
+                detail = ""
+                for m in st.get("messages") or []:
+                    if isinstance(m, list) and len(m) > 1 and isinstance(m[1], dict):
+                        detail = m[1].get("exception_message") or detail
+                raise comfy.ComfyError(detail or "本地文本工作流执行失败")
+            if st.get("completed"):
+                text = _clean(_extract_text(rec.get("outputs") or {}))
+                if not text:
+                    raise comfy.ComfyError("工作流完成但没有取到文本（检查 PreviewAny 节点）")
+                cost = round(time.time() - t0, 1)
+                comfy.log("%s完成 · %d 字 · %.1fs" % (label, len(text), cost), "OK")
+                return text, cost
+        raise comfy.ComfyError("本地文本工作流超时（%d 秒）" % TIMEOUT)
+    finally:
+        # 反推/润色跑的是 Qwen3-VL 4B（~5G），不释放就会赖在显存里，
+        # 紧接着的生图任务（UNET+CLIP ~15G）得先挤走它——8G 机器上这一挤一装极慢。
+        # 成功/失败/超时都清理；清理失败只记日志，绝不影响主流程结果。
         try:
-            hist = comfy.history(pid)
-        except Exception:
-            continue
-        rec = (hist or {}).get(pid)
-        if not rec:
-            continue
-        st = rec.get("status") or {}
-        if st.get("status_str") == "error" or st.get("completed") is False:
-            detail = ""
-            for m in st.get("messages") or []:
-                if isinstance(m, list) and len(m) > 1 and isinstance(m[1], dict):
-                    detail = m[1].get("exception_message") or detail
-            raise comfy.ComfyError(detail or "本地文本工作流执行失败")
-        if st.get("completed"):
-            text = _clean(_extract_text(rec.get("outputs") or {}))
-            if not text:
-                raise comfy.ComfyError("工作流完成但没有取到文本（检查 PreviewAny 节点）")
-            cost = round(time.time() - t0, 1)
-            comfy.log("%s完成 · %d 字 · %.1fs" % (label, len(text), cost), "OK")
-            return text, cost
-    raise comfy.ComfyError("本地文本工作流超时（%d 秒）" % TIMEOUT)
+            comfy.free_models()
+            comfy.log("%s：已卸载文本模型并回收显存" % label, "INFO")
+        except Exception as e:
+            comfy.log("%s：显存回收失败（不影响结果）：%s" % (label, str(e)[:100]), "WARN")
 
 
 def polish_system(prompt, cfg=None, mode=None):

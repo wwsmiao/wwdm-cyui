@@ -139,6 +139,11 @@ def log(msg, level="INFO"):
     print(line, flush=True)
     with LOG_LOCK:
         LOG.append(line)
+    try:
+        from .filelog import write as _flog    # 服务日志落盘（重启后仍可追查）
+        _flog(msg, level)
+    except Exception:
+        pass
 
 
 def logs(limit=200):
@@ -257,7 +262,52 @@ def upload_image(file_bytes, filename, subfolder=""):
     return (sub + "/" + name) if sub else name
 
 
+def _check_lora_names(prompt):
+    """提交前校验 workflow 里所有 LoRA 名在 ComfyUI 当前清单中存在。
+
+    为什么放在这里（所有路径的必经之地）：
+      AI 助手路径会"编"出听起来合理的 LoRA 名（用户点名了角色但本地没装），
+      手动路径也可能因为界面残留了旧参数而带上失效 LoRA。原来要等 ComfyUI
+      校验时才报 "Value not in list"，整个任务失败。这里提前拦下，错误信息
+      带上当前可用清单——AI 工具循环会把错误回灌给模型，让它重新查清单纠正。
+    """
+    names = []
+    for node in (prompt or {}).values():
+        if node.get("class_type") == "LoraLoaderModelOnly":
+            n = str((node.get("inputs") or {}).get("lora_name") or "").strip()
+            if n:
+                names.append(n)
+    if not names:
+        return
+    try:
+        # 直接读 object_info 的实时清单（和 ComfyUI 校验用的是同一份数据源），
+        # 不用 catalog() 的 2 分钟缓存 —— 避免刚装了 LoRA 还没刷新时被误拦。
+        info = object_info("LoraLoaderModelOnly") or {}
+        node_info = (info.get("LoraLoaderModelOnly") or {}).get("input") or {}
+        available = [str(x) for x in ((node_info.get("required") or {}).get("lora_name") or [])[0]]
+    except Exception:
+        available = []                  # 清单拿不到就不误拦，让 ComfyUI 自己判
+    if not available:
+        # 退路：object_info 读不到时用 catalog 缓存（总比不校验强）
+        try:
+            available = [str(x) for x in ((catalog() or {}).get("loras") or [])]
+        except Exception:
+            return
+    if not available:
+        raise ComfyError(
+            "当前 ComfyUI 的 LoRA 清单为空，但工作流要用 LoRA：%s。"
+            "请先在 ComfyUI-Manager 安装对应 LoRA 并点「刷新模型清单」。" % "、".join(names))
+    avail = set(available)
+    missing = [n for n in names if n not in avail]
+    if missing:
+        hint = "、".join(available[:12]) + ("…" if len(available) > 12 else "")
+        raise ComfyError(
+            "LoRA 不存在：%s。当前可用的有：%s。"
+            "请检查模型是否已安装 / 点「刷新模型清单」后重试。" % ("、".join(missing), hint))
+
+
 def queue_prompt(prompt, client_id=None):
+    _check_lora_names(prompt)
     payload = {"prompt": prompt, "client_id": client_id or CLIENT_ID}
     try:
         return post_json("/prompt", payload, timeout=40)
@@ -294,6 +344,25 @@ def queue_state():
 
 def interrupt():
     return post_json("/interrupt", {}, timeout=10)
+
+
+def free_models():
+    """卸载 ComfyUI 里缓存的模型并清空显存（POST /free）。
+
+    为什么需要：ComfyUI 默认「智能内存管理」会把加载过的模型留在显存里，
+    直到下一个任务要空间才换出。本地反推 / 润色跑的是 Qwen3-VL 4B（~5G），
+    跑完不释放的话，紧接着的生图任务（UNET+CLIP ~15G）就得先把 4B 挤走，
+    在 8G 显存的机器上这一挤一装非常慢。
+
+    两个开关都要给：
+      unload_models → 从显存卸载所有模型
+      free_memory   → 让 ComfyUI 回收空闲显存块（torch.cuda.empty_cache）
+    """
+    # /free 端点成功时返回空 body（web.Response(status=200)），不能用 post_json 解析 JSON，
+    # 只用 _check 校验 HTTP 状态码即可。
+    _check(_SESSION.post(_url("/free"),
+                         json={"unload_models": True, "free_memory": True}, timeout=10))
+    return True
 
 
 def delete_queue(ids):
