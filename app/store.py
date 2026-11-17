@@ -382,8 +382,8 @@ def list_sessions():
         return [
             {
                 "id": s["id"],
-                "title": s["title"],
-                "updated_at": s["updated_at"],
+                "title": s.get("title") or "新对话",
+                "updated_at": s.get("updated_at") or s.get("created_at") or 0,
                 "count": len(s.get("messages", [])),
             }
             for s in _state["sessions"]
