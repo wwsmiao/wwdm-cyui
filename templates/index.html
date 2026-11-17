@@ -193,7 +193,16 @@
     <section class="view hidden" id="viewGallery">
       <div class="page-head">
         <h1>作品图库</h1><p>所有生成结果都保存在 <code id="resultsPath">data/results</code> · 勾选后可批量删除或发送到图片编辑，点名称可改名</p>
-        <div class="head-actions">
+        <div class="head-actions" style="width:100%;margin-top:8px">
+          <input id="gallerySearch" type="search" placeholder="搜索提示词 / 名称…" style="flex:1;min-width:180px">
+          <select id="galleryFilter" style="flex:none">
+            <option value="">全部类型</option>
+            <option value="text2img">文生图</option>
+            <option value="img2img">图生图</option>
+            <option value="edit">编辑</option>
+            <option value="inpaint">局部重绘</option>
+            <option value="导入">导入恢复</option>
+          </select>
           <span class="g-selinfo" id="gallerySelInfo">未选择</span>
           <button class="ghost-btn" id="gallerySelectAll">全选</button>
           <button class="danger-btn" id="galleryDeleteSel">删除所选</button>
@@ -344,6 +353,14 @@
               <button class="primary-btn" id="comfySave">保存</button>
             </div>
             <small id="comfyBaseMsg">地址保存在 <code id="configPath">data/config.json</code>，改完即时生效。</small>
+          </div>
+          <div class="form-group">
+            <label>访问密码 <span class="help-muted">（局域网开放时防误删；留空=不启用，改完点保存）</span></label>
+            <div class="form-row" style="align-items:center">
+              <input type="password" id="authSetPw" class="text-input" style="flex:1" placeholder="新密码（≥4 位，留空=关闭认证）" autocomplete="new-password">
+              <button class="ghost-btn" id="authSetSave" style="flex:none">保存密码</button>
+            </div>
+            <small class="help-muted" id="authState">检测中…</small>
           </div>
           <div class="form-group">
             <label>本地目录 <span class="hint">可选。图片选择弹窗靠它列出 ComfyUI 的历史输入图</span></label>
@@ -708,6 +725,18 @@
   </div>
 
   <!-- 自定义确认弹窗（替代 js 原生 confirm） -->
+  <!-- 访问密码登录弹层（启用认证后 401 时弹出） -->
+  <div class="modal hidden" id="authModal">
+    <div class="confirm-card">
+      <div class="confirm-text">本应用已启用访问密码，请输入后继续：</div>
+      <input type="password" id="authPw" class="text-input" style="width:100%" placeholder="访问密码"
+             autocomplete="current-password">
+      <div class="confirm-actions">
+        <button class="primary-btn" id="authLogin">登录</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal hidden" id="confirmModal">
     <div class="confirm-card">
       <div class="confirm-text" id="confirmText"></div>

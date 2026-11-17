@@ -4,6 +4,7 @@ import io
 import json
 import os
 import re
+import shutil
 import threading
 import time
 import traceback
@@ -177,6 +178,8 @@ def bootstrap():
                 cat = comfy.catalog()
             except Exception as e:
                 comfy.log("模型清单获取失败: %s" % e, "WARN")
+        if online:
+            _heal_uploads()
         return ok(
             comfy={"online": online, "base": comfy.base(), "stats": stats},
             comfy_base=comfy.base(),
@@ -284,6 +287,7 @@ def catalog():
 
 
 UPLOADS_FILE = os.path.join(DATA_DIR, "uploads.json")
+UPLOADS_ARCHIVE_DIR = os.path.join(DATA_DIR, "uploads")   # 上传图存档（换机自愈源）
 _THUMB_DIR = os.path.join(DATA_DIR, ".thumbs")
 _UPLOADS_LOCK = threading.RLock()
 _INPUTS_CACHE = {"ts": 0.0, "limit": 0, "source": "", "data": None}
@@ -527,6 +531,15 @@ def upload():
                 ext = os.path.splitext(safe)[1].lower() or ".png"
                 name = "cyui_%s%s" % (uuid.uuid4().hex[:10], ext)
             stored = comfy.upload_image(raw, name)
+            # 双写存档：ComfyUI input 目录会随换机/重装丢失，data/uploads 永远在；
+            # bootstrap 时发现 input 缺档会自动从这里补回（见 _heal_uploads）
+            try:
+                os.makedirs(UPLOADS_ARCHIVE_DIR, exist_ok=True)
+                if not os.path.exists(os.path.join(UPLOADS_ARCHIVE_DIR, stored)):
+                    with open(os.path.join(UPLOADS_ARCHIVE_DIR, stored), "wb") as af:
+                        af.write(raw)
+            except Exception as e:
+                comfy.log("上传图存档失败（不影响上传）: %s" % str(e)[:90], "WARN")
             w = h = 0
             try:
                 im = ImageOps.exif_transpose(Image.open(io.BytesIO(raw)))
@@ -1026,8 +1039,122 @@ def session_rename(sid):
 @bp.route("/api/gallery")
 def gallery():
     def run():
-        return ok(gallery=store.list_gallery(_int_arg("limit", 160, 1, 400)))
+        return ok(gallery=store.list_gallery(_int_arg("limit", 500, 1, 2000)))
     return _guard(run)
+
+
+# ---------- 访问认证（可选） ----------
+# 未设置密码 = 不启用（本机默认）；设置了密码后全站（页面与 /api/*）需登录。
+# 场景：把 CYUI 开到局域网给多人用时防止陌生人误删数据。
+
+def _hash_pw(pw, salt):
+    return hashlib.sha256(("cyui:%s:%s" % (salt, pw)).encode("utf-8")).hexdigest()
+
+
+def _auth_enabled():
+    return bool(config.get("access_password"))
+
+
+def _authed():
+    from flask import session
+    return session.get("authed") is True
+
+
+# 拦截白名单：登录相关与静态资源
+_AUTH_WHITELIST_PREFIX = ("/api/auth/", "/static/", "/results/")
+_AUTH_WHITELIST_EXACT = ("/", "/favicon.ico", "/api/ping")
+
+
+@bp.before_request
+def _auth_gate():
+    if not _auth_enabled():
+        return None
+    p = request.path
+    if p in _AUTH_WHITELIST_EXACT or any(p.startswith(x) for x in _AUTH_WHITELIST_PREFIX):
+        return None
+    if _authed():
+        return None
+    if p.startswith("/api/"):
+        return jsonify({"ok": False, "code": 401, "error": "需要登录：请在弹层中输入访问密码"})
+    return "需要登录：请在浏览器访问首页后输入访问密码", 401
+
+
+@bp.route("/api/auth/status")
+def auth_status():
+    return ok(enabled=_auth_enabled(), authed=(_authed() or not _auth_enabled()))
+
+
+@bp.route("/api/auth/login", methods=["POST"])
+def auth_login():
+    def run():
+        data = request.get_json(force=True) or {}
+        pw = str(data.get("password") or "")
+        salt = str(config.get("auth_salt") or "")
+        if not _auth_enabled():
+            return ok(authed=True, enabled=False)
+        if _hash_pw(pw, salt) == config.get("access_password"):
+            from flask import session
+            session["authed"] = True
+            comfy.log("访问密码登录成功", "INFO")
+            return ok(authed=True)
+        return fail("访问密码不正确", code=401)
+    return _guard(run)
+
+
+@bp.route("/api/auth/set", methods=["POST"])
+def auth_set():
+    """设置/关闭访问密码。条件：当前已登录，或认证未启用（首次设置）。"""
+    def run():
+        if _auth_enabled() and not _authed():
+            return fail("请先登录后再修改访问密码", code=401)
+        data = request.get_json(force=True) or {}
+        pw = str(data.get("password") or "").strip()
+        import secrets as _secrets
+        if pw:
+            if len(pw) < 4:
+                return fail("密码至少 4 位")
+            salt = _secrets.token_hex(8)
+            config.set_many({"auth_salt": salt, "access_password": _hash_pw(pw, salt)})
+            comfy.log("访问密码已启用（局域网访问需登录）", "OK")
+        else:
+            config.set_many({"auth_salt": "", "access_password": ""})
+            from flask import session
+            session["authed"] = False
+            comfy.log("访问密码已关闭", "INFO")
+        return ok(enabled=_auth_enabled())
+    return _guard(run)
+
+
+def _heal_uploads():
+    """上传图自愈：ComfyUI input 里缺失、但 data/uploads 存档还在的图，自动补回。
+
+    场景：换电脑 / 重装 ComfyUI 后 input 目录被清空，历史输入图全失效。
+    存档（data/uploads）随项目走，这里逐个比对补回，全部静默、只记日志。
+    仅本机 ComfyUI（有 input_dir）时可用；远程实例无法写对方目录，跳过。
+    """
+    try:
+        ind = comfy.input_dir()
+        if not ind:
+            return 0
+        names = [it.get("name") for it in (_load_uploads() or []) if it.get("name")]
+        if not names:
+            return 0
+        n = 0
+        for name in names:
+            dst = os.path.join(ind, name)
+            src = os.path.join(UPLOADS_ARCHIVE_DIR, name)
+            if not os.path.isfile(dst) and os.path.isfile(src):
+                try:
+                    shutil.copy2(src, dst)
+                    n += 1
+                except Exception:
+                    pass
+        if n:
+            comfy.log("上传图自愈：已从存档补回 %d 张到 ComfyUI input" % n, "OK")
+        return n
+    except Exception as e:
+        comfy.log("上传图自愈异常: %s" % str(e)[:90], "WARN")
+        return 0
 
 
 def _drop_comfy_output(items):

@@ -72,11 +72,10 @@ websocket-client==1.9.2
 #   python -m pip uninstall -y websocket
 #   python -m pip install websocket-client==1.9.2
 #
-# 另注：app/comfy.py:325-333 会探测 create_connection 的签名来决定是否传
-# http_proxy_host / http_no_proxy。websocket-client 1.x 把这两个放在
-# **options 里，签名探测取不到，故实际不传代理参数——实测 127.0.0.1:8188
-# 直连正常（已连接 ComfyUI 进度通道 · http://127.0.0.1:8188）。
-# 若日后 ComfyUI 迁移到需经代理的远程地址，需改这段逻辑或显式设 NO_PROXY。
+# 代理行为（app/comfy.py _ws_worker）：ws 连接显式传 http_proxy_host=None +
+# http_no_proxy=[127.0.0.1, localhost]——本地 ComfyUI 强制绕过系统代理
+# （Clash 场景进度条不动的根因）；远程地址则跟随环境变量 http_proxy。
+# 2026-11-17 已实测本地直连正常。
 # ---------------------------------------------------------------------
 
 

@@ -25,6 +25,16 @@ def create_app():
         static_url_path="/static",
     )
     app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024
+    # session 密钥持久化：随机生成一次存进 config.json，重启后登录态不失效
+    try:
+        import secrets as _secrets
+        _sk = config.get("flask_secret_key")
+        if not _sk:
+            _sk = _secrets.token_hex(32)
+            config.set_many({"flask_secret_key": _sk})
+        app.config["SECRET_KEY"] = _sk
+    except Exception:
+        pass
     # debug=False 时 Jinja 会缓存编译后的模板，改 index.html 必须重启才生效。
     # 这是本地开发型工具，开启自动重载，改完模板刷新即可看到。
     app.config["TEMPLATES_AUTO_RELOAD"] = True

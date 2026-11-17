@@ -33,6 +33,7 @@
     const res = await fetch(path, opts);
     let data;
     try { data = await res.json(); } catch (e) { throw new Error('服务器返回了非 JSON 内容'); }
+    if (data.code === 401) { showAuthModal(); throw new Error('需要登录'); }
     if (!data.ok) {
       let extra = '';
       if (data.detail) {
@@ -211,6 +212,7 @@
         polish: true, polish_provider: 'local', deepseek_model: 'deepseek-chat',
         cloud_enabled: true, cloud_custom: '', canvas_gap_x: 28, canvas_gap_y: 28,
       }, r.defaults, saved);
+      if (state.params.deepseek_key) state.params.deepseek_key = unmaskKey(state.params.deepseek_key);
       // 旧版只有 canvas_gap：迁移成横向 / 纵向两个值
       if (saved.canvas_gap != null && saved.canvas_gap_x == null && saved.canvas_gap_y == null) {
         state.params.canvas_gap_x = state.params.canvas_gap_y = Number(saved.canvas_gap) || 28;
@@ -334,6 +336,45 @@
     $('#drawerClose').addEventListener('click', closeDrawer);
     $('#drawerMask').addEventListener('click', closeDrawer);
     $('#paramsDone').addEventListener('click', saveParams);
+    $('#gallerySearch').addEventListener('input', () => renderGallery());
+    /* 访问密码：登录弹层 + 设置页保存 */
+    function showAuthModal() {
+      const m = $('#authModal');
+      if (!m) return;
+      m.classList.remove('hidden');
+      const pw = $('#authPw');
+      pw.value = '';
+      setTimeout(() => pw.focus(), 60);
+    }
+    async function doAuthLogin() {
+      const pw = ($('#authPw').value || '').trim();
+      if (!pw) return;
+      try {
+        const r = await post('/api/auth/login', { password: pw });
+        if (r.authed) { $('#authModal').classList.add('hidden'); location.reload(); }
+      } catch (e) { heroNotice('登录失败：' + e.message, 'error'); }
+    }
+    $('#authLogin').addEventListener('click', doAuthLogin);
+    $('#authPw').addEventListener('keydown', e => { if (e.key === 'Enter') doAuthLogin(); });
+    async function refreshAuthState() {
+      try {
+        const r = await api('/api/auth/status');
+        const el = $('#authState');
+        if (el) el.textContent = r.enabled ? '✅ 访问密码已启用（访问本应用需登录）' : '🔒 未启用（仅本机可访问；开放局域网前建议启用）';
+        $('#authSetPw').placeholder = r.enabled ? '输入新密码替换（留空=关闭认证）' : '设置访问密码（≥4 位，留空=关闭）';
+      } catch (e) { /* 静默 */ }
+    }
+    $('#authSetSave').addEventListener('click', async () => {
+      const pw = ($('#authSetPw').value || '').trim();
+      try {
+        const r = await post('/api/auth/set', { password: pw });
+        $('#authSetPw').value = '';
+        heroNotice(r.enabled ? '访问密码已启用' : '访问密码已关闭');
+        refreshAuthState();
+      } catch (e) { heroNotice('保存失败：' + e.message, 'error'); }
+    });
+    refreshAuthState();
+    $('#galleryFilter').addEventListener('change', () => renderGallery());
     // 独立的图片尺寸卡片
     $('#sizeDone').addEventListener('click', closeSizeCard);
     $('#sizeClose').addEventListener('click', closeSizeCard);
@@ -1946,8 +1987,30 @@
     p.cache_dtype = $('#p_cache_dtype').value; p.negative = $('#p_negative').value;
     persistParams(); updateComposer(); closeDrawer(); heroNotice('参数已保存');
   }
+  /* DeepSeek Key 混淆存储：localStorage 里不再出现明文（防直接窥视，非加密） */
+  function maskKey(sv) {
+    try {
+      if (!sv) return '';
+      const k = 'cyui';
+      let x = '';
+      for (let i = 0; i < sv.length; i++) x += String.fromCharCode(sv.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+      return 'enc1:' + btoa(unescape(encodeURIComponent(x)));
+    } catch (e) { return sv || ''; }
+  }
+  function unmaskKey(sv) {
+    try {
+      if (!sv) return '';
+      if (!sv.startsWith('enc1:')) return sv;      // 兼容旧明文
+      const bin = decodeURIComponent(escape(atob(sv.slice(5))));
+      const k = 'cyui';
+      let out = '';
+      for (let i = 0; i < bin.length; i++) out += String.fromCharCode(bin.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+      return out;
+    } catch (e) { return sv || ''; }
+  }
   function persistParams() {
     const obj = Object.assign({}, state.params, { __loras: state.loras });
+    obj.deepseek_key = maskKey(obj.deepseek_key || '');
     localStorage.setItem('cyui_params', JSON.stringify(obj));
   }
 
@@ -2359,15 +2422,31 @@
 
   async function refreshGallery() {
     try {
-      const r = await api('/api/gallery'); state.gallery = r.gallery; renderGallery();
+      const r = await api('/api/gallery?limit=2000'); state.gallery = r.gallery; renderGallery();
       // 无论当前在哪个视图，新图一进入图库就分配空位并落盘：生成完成即刻可见
       if (!state.canvasDragging) await assignMissingSlots(true);
       if (state.view === 'canvas' && !state.canvasDragging) renderCanvas();
     } catch (e) { /* 静默 */ }
   }
+  function galleryFiltered() {
+    const q = (($('#gallerySearch') || {}).value || '').trim().toLowerCase();
+    const f = (($('#galleryFilter') || {}).value || '');
+    if (!q && !f) return state.gallery;
+    return (state.gallery || []).filter(g => {
+      if (f) {
+        if (f === '\u5bfc\u5165') { if (g.skill !== '\u5bfc\u5165') return false; }
+        else if ((g.mode || '') !== f) return false;
+      }
+      if (q) {
+        const hay = ((g.prompt || '') + '\n' + (g.name || '')).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }
   function renderGallery() {
     const sel = state.gallerySelection = state.gallerySelection || new Set();
-    const items = state.gallery || [];
+    const items = galleryFiltered();
     $('#galleryGrid').innerHTML = items.length ? items.map(g => {
       const name = g.name || (g.prompt || '').split('\n')[0] || '未命名作品';
       return `<div class="gallery-item ${sel.has(g.id) ? 'selected' : ''}" data-gid="${esc(g.id)}">

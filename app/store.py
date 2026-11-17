@@ -535,7 +535,7 @@ def add_gallery(items):
                 base = (it.get("prompt") or "").strip().split("\n")[0] or "未命名作品"
                 it["name"] = base[:32]
             _state["gallery"].insert(0, it)
-        _state["gallery"] = _state["gallery"][:400]
+        _state["gallery"] = _state["gallery"][:2000]   # 上限 2000（原 400，配合搜索/筛选提升）
         _save()
 
 
