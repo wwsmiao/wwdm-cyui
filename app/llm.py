@@ -277,6 +277,14 @@ def _clean(text):
 
 def _run(wf, label):
     t0 = time.time()
+    # 提交前先卸载生图残留模型：LLM 权重（fp8 4B 也要 8.5G staged）叠加生图模型（~15.6G）
+    # 会爆显存，触发 ComfyUI 动态换页风暴——最坏把主循环挤到假死（HTTP 全部无响应，
+    # 表现为「生成中途卡住不动」）。先清空再跑，LLM 独占干净显存，速度也快一倍。
+    try:
+        comfy.free_models()
+        comfy.log("%s：已预清理显存（卸载生图残留模型）" % label, "INFO")
+    except Exception as e:
+        comfy.log("%s：提交前显存清理失败（继续，可能较慢）：%s" % (label, str(e)[:100]), "WARN")
     res = comfy.queue_prompt(wf)
     pid = res.get("prompt_id")
     if not pid:

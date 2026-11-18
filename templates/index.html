@@ -292,6 +292,7 @@
             <li><b>用 5 步方案</b>：采样方案切「Viggle」（标准底模 + 5 步加速 LoRA），比 Turbo 8 步再快一档。</li>
           </ol>
           <p class="help-note">默认模型组合（Turbo int8 6.8G + CLIP int8 8.8G ≈ 15.6G）在 8G 显存上靠换页硬扛会很慢；按上面 1~3 步配置后总占用可降到 ~9.5G，配合 Cache 调优即可流畅出图。</p>
+          <p class="help-note"><b>AI 润色 / 反推</b>：CYUI 会在任务前自动清空显存（卸载生图残留模型），本地模型生成约 1~3 分钟（视生成长度），等待时进度条会显示已等待时间。生成期间 ComfyUI 网页可能暂时无响应属正常现象，生成完即恢复。</p>
         </div>
 
         <div class="set-card">

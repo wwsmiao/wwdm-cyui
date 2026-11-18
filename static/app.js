@@ -1182,8 +1182,18 @@
     }
     await doReverse(img.name);
   }
+  /* 长任务画布进度条的动态计时：把「无限转圈」变成可感知的等待 */
+  function cvProgressTimer(prefix, ms) {
+    const t0 = Date.now();
+    const iv = setInterval(() => {
+      const sec = Math.round((Date.now() - t0) / 1000);
+      setCvProgress(prefix + '（已等待 ' + sec + 's' + (ms ? '，通常 ' + ms : '') + '）', 6);
+    }, 2000);
+    return () => clearInterval(iv);
+  }
   async function doReverse(name) {
     setCvProgress('AI 正在反推画面提示词…（首次加载模型约 1 分钟）', 6);
+    const stopRevTimer = cvProgressTimer('AI 正在反推画面提示词…', '本地模型生成约 1~3 分钟');
     try {
       const provider = state.params.polish_provider || 'local';
       const r = await post('/api/reverse', {
@@ -1196,11 +1206,13 @@
       state.draft = r.text || '';
       $$('.composer-input').forEach(x => { x.value = state.draft; });
       updateComposer();
+      stopRevTimer();
       clearCvProgress();
       heroNotice('反推完成（' + (r.seconds || 0) + 's · ' + (provider === 'deepseek' ? 'DeepSeek' : '本地 Qwen3-VL') + '），已填入输入框');
       if (state.view !== 'home' && state.view !== 'chat' && state.view !== 'canvas') switchView('home');
       const ta = $('.composer-input'); if (ta) ta.focus();
-    } catch (e) { clearCvProgress(); heroNotice('反推失败：' + e.message, 'error'); }
+    } catch (e) { stopRevTimer(); clearCvProgress(); heroNotice('反推失败：' + e.message, 'error'); }
+    finally { stopRevTimer(); }
   }
   async function reverseFromUrl(url) {
     try {
@@ -2026,6 +2038,7 @@
       // 图生图 / 图片编辑 / 局部重绘会把参考图一起传给模型（多模态润色，结果与参考图对齐）
       if (state.params.polish && payload.prompt && !override) {
         setCvProgress('提示词润色中…', 5);
+        const stopPlTimer = cvProgressTimer('提示词润色中…', '本地模型生成约 1~3 分钟');
         try {
           const pr = await post('/api/polish', {
             prompt: payload.prompt,
@@ -2035,11 +2048,14 @@
             api_key: state.params.deepseek_key || '',
             model: state.params.deepseek_model || 'deepseek-chat',
           });
+          stopPlTimer();
           payload.prompt = pr.polished;
           heroNotice('提示词已润色（' + polishSourceName() + (pr.multimodal ? ' · 已参考图片' : '') + '）');
         } catch (e) {
+          stopPlTimer();
           heroNotice('润色失败，使用原文：' + e.message, 'error');
         }
+        finally { stopPlTimer(); }
       }
       setCvProgress('正在提交任务…', 3);
       const r = await api('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
