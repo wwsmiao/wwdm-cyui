@@ -51,6 +51,24 @@ DEFAULT_REVERSE_SYSTEM = """# 角色
 
 DEFAULT_MAX_LENGTH = 512
 
+# 三类 LLM 模型的工作流差异：CLIPLoader 的 type、生成节点、图片输入名各不相同
+# （gemma4 / qwen3.5 是 TextGenerate 单图；qwen3vl 是 TextGenerateV2 多图、ideogram4 模板）
+_MODEL_PRESETS = [
+    (r"qwen3vl", {"clip_type": "ideogram4", "node": "TextGenerateV2", "img_fmt": "images.image{}"}),
+    (r"gemma4", {"clip_type": "stable_diffusion", "node": "TextGenerate", "img_fmt": "image"}),
+    (r"qwen3[._]5|qwen3_5", {"clip_type": "stable_diffusion", "node": "TextGenerate", "img_fmt": "image"}),
+]
+_MODEL_PRESET_DEFAULT = {"clip_type": "ideogram4", "node": "TextGenerateV2", "img_fmt": "images.image{}"}
+
+
+def _model_preset(model_name):
+    """按模型文件名匹配工作流预设（正则顺序即优先级，未命中走 qwen3vl 默认）"""
+    name = str(model_name or "")
+    for pat, ps in _MODEL_PRESETS:
+        if re.search(pat, name, re.I):
+            return ps
+    return _MODEL_PRESET_DEFAULT
+
 # 多模态润色：带参考图的模式在用户模板之后追加的任务说明（不改用户自定义模板）
 MODE_APPENDIX = {
     "img2img": """
@@ -178,8 +196,11 @@ def build(system, prompt, images=None, cfg=None):
     cfg = _merge_cfg(cfg)
     wf = copy.deepcopy(PRESET)
 
-    wf["5"]["inputs"]["clip_name"] = cfg.get("model") or DEFAULT_MODEL
-    wf["5"]["inputs"]["type"] = DEFAULT_CLIP_TYPE
+    model_name = cfg.get("model") or DEFAULT_MODEL
+    ps = _model_preset(model_name)
+    wf["5"]["inputs"]["clip_name"] = model_name
+    wf["5"]["inputs"]["type"] = ps["clip_type"]
+    wf["10"]["class_type"] = ps["node"]
     wf["12"]["inputs"]["value"] = system or ""
 
     node = wf["10"]["inputs"]
@@ -199,12 +220,21 @@ def build(system, prompt, images=None, cfg=None):
     node["sampling_mode.presence_penalty"] = float(cfg.get("presence_penalty") or 0.0)
     node["sampling_mode.seed"] = random.randint(1, 2 ** 31 - 1)
 
-    # 参考图：TextGenerateV2 的 AUTOGROW 输入名为 images.image1..N（无下划线），
-    # 多模态润色（图生图 / 编辑 / 局部重绘）与反推共用同一通道
-    for i, img in enumerate((images or [])[:MAX_POLISH_IMAGES], 1):
+    # 参考图：qwen3vl 走 TextGenerateV2 的 AUTOGROW 输入（images.image1..N，支持多图）；
+    # gemma4 / qwen3.5 走 TextGenerate 的单图输入（image），多图时只取第一张。
+    for k in list(node.keys()):
+        if k.startswith("images."):
+            del node[k]                     # 换节点类型后清掉残留的 V2 输入键，防校验拒绝
+    if ps["node"] == "TextGenerate":
+        img = next((x for x in (images or []) if x), None)
         if img:
-            wf["loadimg_%d" % i] = {"class_type": "LoadImage", "inputs": {"image": img}}
-            node["images.image%d" % i] = ["loadimg_%d" % i, 0]
+            wf["loadimg_1"] = {"class_type": "LoadImage", "inputs": {"image": img}}
+            node["image"] = ["loadimg_1", 0]
+    else:
+        for i, img in enumerate((images or [])[:MAX_POLISH_IMAGES], 1):
+            if img:
+                wf["loadimg_%d" % i] = {"class_type": "LoadImage", "inputs": {"image": img}}
+                node["images.image%d" % i] = ["loadimg_%d" % i, 0]
 
     wf["7"] = {"class_type": "PreviewAny", "inputs": {"source": ["10", 0]}}
     return wf

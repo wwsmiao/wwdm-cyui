@@ -1489,10 +1489,10 @@
     sel.value = cur;
     $('#p_deepseek_vision').value = p.deepseek_vision || DEEPSEEK_VISION_DEFAULT;
 
-    // 本地工作流：模型下拉只列 Qwen3-VL（TextGenerateV2 的 ideogram4 模板基于它）
+    // 本地工作流：三类 LLM 模型（qwen3vl 多图 / gemma4 / qwen3.5 单图），节点与模板自动适配
     const def = state.llmDefault || {};
     const lcur = l.model || def.model || '';
-    let clips = ((state.catalog || {}).clips || []).filter(m => /qwen3vl/i.test(m));
+    let clips = ((state.catalog || {}).clips || []).filter(m => /qwen3vl|gemma4|qwen3[._]5/i.test(m));
     if (!clips.length) clips = ((state.catalog || {}).clips || []).slice();
     if (lcur && !clips.includes(lcur)) clips.unshift(lcur);
     $('#p_llm_model').innerHTML = clips.length
