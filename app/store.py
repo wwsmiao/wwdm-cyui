@@ -453,40 +453,32 @@ def last_ai_user(sid):
 
 
 def delete_session(sid):
-    """删除会话，并联动删除该会话生成的作品（自由画布卡片）。
+    """删除会话。作品图库中的图片**保留**（用户决策 2026-11-18：删对话不删图）。
 
-    返回 {"session": bool, "gallery": [被删作品 id]}，供前端同步刷新画布 / 图库。
+    返回 {"session": bool, "gallery": []}——gallery/items 恒为空，
+    保持响应结构兼容前端 applyLinkedDeletion 与 routes 的 _drop_comfy_output。
     """
     with _lock:
         n = len(_state["sessions"])
         _state["sessions"] = [s for s in _state["sessions"] if s["id"] != sid]
-        victims = [g for g in _state["gallery"] if g.get("session_id") == sid]
-        if victims:
-            _state["gallery"] = [g for g in _state["gallery"] if g.get("session_id") != sid]
+        removed = n != len(_state["sessions"])
+        if removed:
             _save()
-        # 联动删除必须落到磁盘：图库里删了，data/results 里的文件也要删（双向对账）
-        for g in victims:
-            _drop_result_file(g.get("url"))
-        return {"session": n != len(_state["sessions"]), "gallery": [g["id"] for g in victims],
-                "items": victims}
+        return {"session": removed, "gallery": [], "items": []}
 
 
 def delete_sessions(sids):
-    """批量删除会话 + 联动作品。返回 {"sessions": [...], "gallery": [...]}"""
+    """批量删除会话。作品图库中的图片**保留**（含 data/results 与 ComfyUI output 文件）。"""
     ids = {str(x) for x in (sids or [])}
     if not ids:
         return {"sessions": [], "gallery": []}
     with _lock:
         hit = [s["id"] for s in _state["sessions"] if s["id"] in ids]
         _state["sessions"] = [s for s in _state["sessions"] if s["id"] not in ids]
-        victims = [g for g in _state["gallery"] if g.get("session_id") in ids]
-        if victims:
-            _state["gallery"] = [g for g in _state["gallery"] if g.get("session_id") not in ids]
+        removed = bool(hit)
+        if removed:
             _save()
-        # 同 delete_session：联动删除落到磁盘，文件一并清掉
-        for g in victims:
-            _drop_result_file(g.get("url"))
-        return {"sessions": hit, "gallery": [g["id"] for g in victims], "items": victims}
+        return {"sessions": hit, "gallery": [], "items": []}
 
 
 def rename_session(sid, title):
@@ -500,18 +492,12 @@ def rename_session(sid, title):
 
 
 def clear_sessions():
-    """清空对话时，同样清掉这些对话产生的画布作品，保持二者相通。"""
+    """清空对话。作品图库中的图片**保留**（用户决策：删对话不删图）。"""
     with _lock:
         ids = {s["id"] for s in _state["sessions"]}
         _state["sessions"] = []
-        victims = [g for g in _state["gallery"] if g.get("session_id") in ids]
-        if victims:
-            _state["gallery"] = [g for g in _state["gallery"] if g.get("session_id") not in ids]
         _save()
-        # 清空对话的联动删除同样落到磁盘
-        for g in victims:
-            _drop_result_file(g.get("url"))
-        return {"sessions": len(ids), "gallery": [g["id"] for g in victims], "items": victims}
+        return {"sessions": len(ids), "gallery": [], "items": []}
 
 
 def add_gallery(items):

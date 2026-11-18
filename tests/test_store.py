@@ -111,7 +111,8 @@ def test_gallery_delete_failed_file_collected(data_dir, store):
     assert res.get("failed_files") == []
 
 
-def test_session_delete_removes_gallery_and_files(data_dir, store):
+def test_session_delete_keeps_gallery_and_files(data_dir, store):
+    """用户决策 2026-11-18：删对话不删图——图库索引与 results 文件都保留"""
     store.init()
     _touch_results(data_dir, "a.png")
     store.new_session("会话")
@@ -119,8 +120,10 @@ def test_session_delete_removes_gallery_and_files(data_dir, store):
     store.add_gallery([_gallery_item(sid=sid, url="/results/a.png")])
     res = store.delete_sessions([sid])
     assert res["sessions"] == [sid]
-    assert not (data_dir / "results" / "a.png").exists(), "删会话必须连带删作品副本"
-    assert store.list_gallery(400) == []
+    assert res["gallery"] == [], "删会话不应返回被删作品"
+    assert (data_dir / "results" / "a.png").exists(), "作品文件必须保留"
+    keep = store.list_gallery(400)
+    assert len(keep) == 1 and keep[0]["session_id"] == sid, "图库索引必须保留"
 
 
 # ---------- 对账 ----------

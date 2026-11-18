@@ -468,7 +468,7 @@
     $('#sessionNav').addEventListener('click', async e => {
       if (e.target.closest('.sess-check')) { e.stopPropagation(); return; }
       const del = e.target.closest('em[data-del]');
-      if (del) { e.stopPropagation(); await deleteSessions([del.dataset.del], '删除这个对话？将同步移除它在自由画布 / 作品图库中的图片。'); return; }
+      if (del) { e.stopPropagation(); await deleteSessions([del.dataset.del], '删除这个对话？\n它在作品图库 / 自由画布中的图片会保留。'); return; }
       if (e.target.closest('.sess-rename')) return;
       const row = e.target.closest('.sess[data-sid]'); if (!row) return;
       const sid = row.dataset.sid;
@@ -500,7 +500,7 @@
     $('#clearSessionsBtn').addEventListener('click', async () => {
       if (!state.sessions.length) return heroNotice('没有可清空的对话', 'error');
       await deleteSessions(state.sessions.map(s => s.id),
-        '清空全部 ' + state.sessions.length + ' 个对话？将同步移除这些对话在自由画布 / 作品图库中的图片。');
+        '清空全部 ' + state.sessions.length + ' 个对话？\n作品图库 / 自由画布中的图片会保留。');
     });
     $('#toGallery')?.addEventListener('click', () => switchView('gallery'));
     $('#galleryRefresh').addEventListener('click', async () => { await refreshGallery(); heroNotice('图库已刷新'); });
@@ -751,7 +751,7 @@
   async function deleteCurrentSession() {
     if (!state.sessionId) return heroNotice('当前没有可删除的对话', 'error');
     const s = state.sessions.find(x => x.id === state.sessionId) || {};
-    if (!(await confirmDialog('删除对话「' + (s.title || '当前对话') + '」？将同步移除它在自由画布 / 作品图库中的图片。'))) return;
+    if (!(await confirmDialog('删除对话「' + (s.title || '当前对话') + '」？\n它在作品图库 / 自由画布中的图片会保留。'))) return;
     try {
       const r = await post('/api/sessions/batch-delete', { ids: [state.sessionId] });
       await applyLinkedDeletion(r);
@@ -2317,7 +2317,7 @@
   async function deleteSessions(ids, label) {
     ids = Array.from(new Set(ids || []));
     if (!ids.length) return heroNotice('请先勾选要删除的对话', 'error');
-    const msg = label || ('删除选中的 ' + ids.length + ' 个对话？将同步移除这些对话在自由画布 / 作品图库中的图片。');
+    const msg = label || ('删除选中的 ' + ids.length + ' 个对话？\n它们在作品图库 / 自由画布中的图片会保留。');
     if (!(await confirmDialog(msg))) return;
     try {
       const r = await post('/api/sessions/batch-delete', { ids });
@@ -4879,12 +4879,8 @@
       if (del) {
         const id = del.dataset.aiDel;
         const c = (state.sessions || []).find(x => x.id === id) || {};
-        // 删会话会连带删除它在图库/画布的作品（store.delete_session 联动），
-        // 确认弹窗必须明说，否则用户清个对话就把作品库清没了（真实事故：45 张图连带被删）
-        const n = (state.gallery || []).filter(g => g.session_id === id).length;
-        if (!(await confirmDialog('删除历史对话「' + (c.title || '新对话') + '」？'
-            + (n ? '\n⚠ 该对话名下有 ' + n + ' 张作品图，将一并删除（含本地文件）！' : '')))) return;
-        await aiDeleteChats([id]); heroNotice('对话已删除' + (n ? '（连带删除 ' + n + ' 张作品）' : ''));
+        if (!(await confirmDialog('删除历史对话「' + (c.title || '新对话') + '」？\n它在作品图库 / 自由画布中的图片会保留。'))) return;
+        await aiDeleteChats([id]); heroNotice('对话已删除（作品图库保留）');
         return;
       }
       const open = e.target.closest('[data-ai-open]');
@@ -4913,11 +4909,8 @@
     $('#aiHistDelSel').addEventListener('click', async () => {
       const ids = Array.from(AI_HIST_SEL);
       if (!ids.length) return heroNotice('请先勾选历史对话', 'error');
-      // 与单条删除同样的连带删除警告（删会话会连带删它名下的作品图）
-      const n = (state.gallery || []).filter(g => ids.includes(g.session_id)).length;
-      if (!(await confirmDialog('删除选中的 ' + ids.length + ' 个历史对话？'
-          + (n ? '\n⚠ 这些对话名下共有 ' + n + ' 张作品图，将一并删除（含本地文件）！' : '')))) return;
-      await aiDeleteChats(ids); heroNotice('已删除 ' + ids.length + ' 个对话' + (n ? '（连带删除 ' + n + ' 张作品）' : ''));
+      if (!(await confirmDialog('删除选中的 ' + ids.length + ' 个历史对话？\n它们在作品图库 / 自由画布中的图片会保留。'))) return;
+      await aiDeleteChats(ids); heroNotice('已删除 ' + ids.length + ' 个对话（作品图库保留）');
     });
 
     // 忙碌时发送键 = 停止键：点击截断 AI 思考 / 工具执行
