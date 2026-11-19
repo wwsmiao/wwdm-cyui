@@ -544,7 +544,7 @@
         <button class="icon-btn" id="drawerClose">×</button>
       </div>
     </div>
-    <div class="drawer-body">
+    <div class="drawer-body img-params">
 
       <div class="drawer-section">采样方案 <small>先定方案，再配底模</small></div>
           <div class="form-group"><label>采样方案 <span class="hint" id="samplingBadge"></span></label>
@@ -610,6 +610,45 @@
             <div class="form-group"><label>Cache 精度</label><select id="p_cache_dtype"><option>default</option><option>int8</option><option>int4</option></select></div>
           </div>
           <div class="form-group"><label>负面提示词</label><textarea id="p_negative" rows="3"></textarea></div>
+    </div>
+    <div class="drawer-body video-params hidden">
+      <div class="drawer-section">视频模型 <small>MiniMax H3（ComfyUI 原生节点）</small></div>
+      <div class="form-group"><label>生成方式</label>
+        <select id="v_fn">
+          <option value="mm-i2v">图生视频 · 单张图 → 短视频（含音轨）</option>
+          <option value="mm-flf">首尾帧生视频 · 首帧 + 尾帧过渡</option>
+          <option value="mm-ref">多参考生视频 · 1~4 张参考图</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>视频比例</label>
+          <select id="v_ratio"><option>16:9</option><option>9:16</option><option>1:1</option></select>
+        </div>
+        <div class="form-group"><label>质量</label>
+          <select id="v_quality"><option>720p</option><option>1080p</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>时长（秒）</label>
+          <select id="v_duration"><option value="5">5 秒</option><option value="10">10 秒</option></select>
+        </div>
+        <div class="form-group"><label>生成个数</label>
+          <select id="v_count"><option value="1">1 个</option><option value="2">2 个</option><option value="4">4 个</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>帧率 (FPS)</label>
+          <select id="v_fps"><option value="24">24</option><option value="30">30</option></select>
+        </div>
+        <div class="form-group"><label>音轨</label>
+          <select id="v_audio"><option value="on">生成配音音轨</option><option value="off">不要音轨</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>负面提示词 <span class="hint">（画面避讳）</span></label>
+        <textarea id="v_negative" rows="3" placeholder="画面抖动, 模糊, 畸变, 闪烁"></textarea>
+      </div>
+      <small class="help-muted">提示：视频生成需要 MiniMax H3 的 nvfp4 权重（已在 models/diffusion_models 检测到），
+        该量化格式要求较新的显卡；如提交失败，请到帮助页确认显卡支持情况。</small>
     </div>
     <div class="drawer-foot">
       <button class="primary-btn" id="paramsDone">完成</button>

@@ -1557,3 +1557,85 @@ body:has(.modal:not(.hidden)) .ai-fab { opacity: 0; pointer-events: none; }
 .set-sub { font-size: 10.5px; font-weight: 400; color: var(--muted-2); }
 #p_cloud_custom { min-height: 108px; line-height: 1.6; font-size: 12px; }
 .set-card > small { display: block; margin-top: 8px; color: var(--muted-2); font-size: 10.5px; line-height: 1.6; }
+
+/* ============================================================
+   v1.2 对话界面四胶囊工具行（图片/视频 · 底模功能 · 参数摘要 · 详细参数）
+   风格参考：暗色胶囊 + 下拉卡片 + 绿色选中态
+   ============================================================ */
+:root { --ok: #a3e635; --ok-dim: rgba(163,230,53,.14); --ok-line: rgba(163,230,53,.42); }
+
+.composer-foot .tools-left { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.composer-foot .tools-left::-webkit-scrollbar { display: none; }
+
+.fpill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 11px; flex: none;
+  border-radius: 9px; border: 1px solid var(--border);
+  background: var(--panel-2); color: var(--text, #e6e7ee);
+  font-size: 12.5px; line-height: 1; cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+  max-width: 260px;
+}
+.fpill:hover { border-color: var(--border-strong); background: var(--panel-3); }
+.fpill .fpill-ico { font-size: 13px; opacity: .9; }
+.fpill .fpill-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fpill .fpill-caret { font-style: normal; font-size: 10px; color: var(--muted-2); margin-left: 1px; }
+.fpill.on { border-color: var(--ok-line); background: var(--ok-dim); color: var(--ok); }
+.fpill.on .fpill-caret { color: var(--ok); }
+.fpill.fpill-accent { border-color: var(--accent); color: var(--accent); }
+
+/* 下拉面板：贴在按钮上方，暗色圆角卡片 */
+.fpop {
+  position: fixed; z-index: 60;
+  min-width: 240px; max-width: 380px; max-height: 62vh; overflow-y: auto;
+  background: #23242c; border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 8px;
+  box-shadow: 0 18px 48px rgba(0,0,0,.55);
+}
+.fpop-sec { padding: 7px 9px 4px; font-size: 10.5px; letter-spacing: .06em; color: var(--muted-2); text-transform: uppercase; }
+.fpop-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 9px; border-radius: 9px; cursor: pointer;
+  font-size: 13px; color: var(--text, #e6e7ee);
+}
+.fpop-item:hover { background: rgba(255,255,255,.055); }
+.fpop-item .fi-ico { width: 18px; text-align: center; opacity: .9; }
+.fpop-item .fi-main { flex: 1; min-width: 0; }
+.fpop-item .fi-main b { font-weight: 500; display: block; }
+.fpop-item .fi-main small { display: block; color: var(--muted-2); font-size: 10.5px; margin-top: 1px; }
+.fpop-item .fi-check { color: var(--ok); font-size: 13px; visibility: hidden; }
+.fpop-item.sel { background: var(--ok-dim); color: var(--ok); }
+.fpop-item.sel .fi-check { visibility: visible; }
+.fpop-div { height: 1px; background: var(--border); margin: 6px 4px; }
+
+/* 参数摘要面板里的行 */
+.fpop-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 9px; }
+.fpop-row > label { font-size: 12.5px; color: var(--muted); flex: none; }
+.fpop-row select, .fpop-row input[type="number"] {
+  background: var(--panel); color: var(--text, #e6e7ee); border: 1px solid var(--border);
+  border-radius: 7px; padding: 5px 8px; font-size: 12.5px; min-width: 108px;
+}
+.fpop-chips { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.fpop-chip {
+  padding: 5px 9px; border-radius: 7px; border: 1px solid var(--border);
+  background: var(--panel); color: var(--muted); font-size: 11.5px; cursor: pointer;
+}
+.fpop-chip:hover { border-color: var(--border-strong); color: var(--text, #e6e7ee); }
+.fpop-chip.sel { border-color: var(--ok-line); background: var(--ok-dim); color: var(--ok); }
+.fpop-switch { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.fpop-switch input { accent-color: var(--ok); width: 15px; height: 15px; }
+
+/* 生图/视频参数：全屏居中弹窗（原右侧抽屉改造） */
+.drawer {
+  position: fixed; inset: 0; margin: auto;
+  width: min(780px, 94vw); height: min(82vh, 760px);
+  background: #1c1e26; border: 1px solid var(--border-strong);
+  border-radius: 18px; box-shadow: 0 30px 80px rgba(0,0,0,.6);
+  transform: translateY(14px) scale(.985); opacity: 0; pointer-events: none;
+  transition: transform .2s, opacity .2s;
+  z-index: 50; display: flex; flex-direction: column;
+}
+.drawer.open { transform: none; opacity: 1; pointer-events: auto; }
+
+/* 视频参数弹窗 */
+#videoParamModal .confirm-card { width: min(560px, 92vw); }

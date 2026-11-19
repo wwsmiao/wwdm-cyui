@@ -212,6 +212,13 @@
         cloud_enabled: true, cloud_custom: '', canvas_gap_x: 28, canvas_gap_y: 28,
       }, r.defaults, saved);
       if (state.params.deepseek_key) state.params.deepseek_key = unmaskKey(state.params.deepseek_key);
+      if (typeof state.params.auto_reverse !== 'boolean') state.params.auto_reverse = false;
+      if (!state.mediaType) state.mediaType = 'image';
+      if (!state.video) state.video = { fn: 'mm-i2v', ratio: '16:9', quality: '720p', duration: 5, count: 1 };
+      try {
+        const vSaved = JSON.parse(localStorage.getItem('cyui_video') || 'null');
+        if (vSaved && typeof vSaved === 'object') state.video = Object.assign(state.video, vSaved);
+      } catch (e) { /* 忽略 */ }
       // 旧版只有 canvas_gap：迁移成横向 / 纵向两个值
       if (saved.canvas_gap != null && saved.canvas_gap_x == null && saved.canvas_gap_y == null) {
         state.params.canvas_gap_x = state.params.canvas_gap_y = Number(saved.canvas_gap) || 28;
@@ -334,7 +341,16 @@
     $('#paramsBtn').addEventListener('click', openDrawer);
     $('#drawerClose').addEventListener('click', closeDrawer);
     $('#drawerMask').addEventListener('click', closeDrawer);
-    $('#paramsDone').addEventListener('click', saveParams);
+    $('#paramsDone').addEventListener('click', () => {
+      if ((state.mediaType || 'image') === 'video') {
+        readVideoParamsForm();
+        try { localStorage.setItem('cyui_video', JSON.stringify(state.video || {})); } catch (e) { /* 忽略 */ }
+        closeDrawer(); updateComposer();
+        heroNotice('视频参数已保存');
+        return;
+      }
+      saveParams();
+    });
     $('#gallerySearch').addEventListener('input', () => renderGallery());
     $('#galleryFilter').addEventListener('change', () => renderGallery());
     // 独立的图片尺寸卡片
@@ -760,23 +776,245 @@
   }
 
   /* ---------------- 输入框 ---------------- */
+  /* ---------------- v1.2 四胶囊工具行：数据表 ---------------- */
+  /* 图片模态：「底模 + 功能」组合（unet 由 catalog 动态匹配，避免文件名硬编码失配） */
+  function pickUnet(turbo) {
+    const list = (state.catalog && state.catalog.unets) || [];
+    const hit = list.find(x => /qwen.?image.?2\.1/i.test(x) && !/gguf/i.test(x)
+      && (turbo ? /turbo/i.test(x) : !/turbo/i.test(x)));
+    return hit || '';
+  }
+  function imageFuncGroups() {
+    return [
+      { group: 'Qwen-Image 2.1 · 标准', items: [
+        { id: 'qi-t2i',  label: '文生图',   ico: '✦',  skill: 'text2img', turbo: false, desc: '标准质量 · 8 步 sigma' },
+        { id: 'qi-i2i',  label: '图生图',   ico: '◧',  skill: 'img2img',  turbo: false, desc: '单图参考改写 · 保构图' },
+        { id: 'qi-edit', label: '多图编辑', ico: '✎',  skill: 'edit',     turbo: false, desc: '1~4 张参考图融合编辑' },
+      ]},
+      { group: 'Qwen-Image 2.1 Turbo · 极速', items: [
+        { id: 'qt-t2i',  label: '文生图',   ico: '⚡', skill: 'text2img', turbo: true, desc: '8 步极速 · 出图更快' },
+        { id: 'qt-i2i',  label: '图生图',   ico: '⚡', skill: 'img2img',  turbo: true, desc: '极速图生图' },
+        { id: 'qt-edit', label: '多图编辑', ico: '⚡', skill: 'edit',     turbo: true, desc: '极速多图编辑' },
+      ]},
+      { group: '工具', items: [
+        { id: 'qi-inp',  label: '局部重绘', ico: '◎',  skill: 'inpaint',  turbo: false, desc: '涂遮罩只改指定区域' },
+      ]},
+    ];
+  }
+  /* 视频模态：MiniMax H3 三种工作流 */
+  function videoFuncGroups() {
+    return [
+      { group: 'MiniMax H3 · 视频', items: [
+        { id: 'mm-i2v', label: '图生视频',    ico: '🎬', desc: '单张图 → 短视频（含音轨）' },
+        { id: 'mm-flf', label: '首尾帧生视频', ico: '🎞', desc: '首帧 + 尾帧过渡动画' },
+        { id: 'mm-ref', label: '多参考生视频', ico: '🎥', desc: '1~4 张参考图融合' },
+      ]},
+    ];
+  }
+  /* 当前选中的功能项（按 skill + turbo 反查） */
+  function currentFuncItem() {
+    if (state.mediaType === 'video') {
+      const v = state.video || {};
+      const all = videoFuncGroups().flatMap(g => g.items);
+      return all.find(x => x.id === v.fn) || all[0];
+    }
+    const sk = (state.skill || 'text2img');
+    const unet = state.params.unet || '';
+    const turbo = /turbo/i.test(unet);
+    const all = imageFuncGroups().flatMap(g => g.items);
+    return all.find(x => x.skill === sk && x.turbo === turbo)
+        || all.find(x => x.skill === sk) || all[0];
+  }
+  /* 参数摘要文案（左3 胶囊上显示） */
+  function mediaParamsText() {
+    if (state.mediaType === 'video') {
+      const v = state.video || {};
+      return [v.ratio || '16:9', v.quality || '720p', (v.duration || 5) + 's',
+              (v.count || 1) + '个'].join(' / ');
+    }
+    return [sizeLabelText(), (state.params.batch || 1) + '张',
+            state.params.polish ? '润色开' : '润色关'].join(' / ');
+  }
+  /* 下拉面板通用：打开/关闭/选中项回调 */
+  let _fpopEl = null;
+  function closeFPop() {
+    if (_fpopEl) { _fpopEl.remove(); _fpopEl = null; }
+  }
+  function openFPop(anchor, html, width) {
+    closeFPop();
+    const el = document.createElement('div');
+    el.className = 'fpop';
+    el.innerHTML = html;
+    if (width) el.style.width = width + 'px';
+    document.body.appendChild(el);
+    const r = anchor.getBoundingClientRect();
+    el.style.left = Math.max(10, Math.min(r.left, window.innerWidth - el.offsetWidth - 10)) + 'px';
+    el.style.top = Math.max(10, r.top - el.offsetHeight - 8) + 'px';
+    if (el.offsetHeight + r.top + 20 > window.innerHeight) {
+      el.style.top = Math.max(10, r.top - el.offsetHeight - 8) + 'px';
+    }
+    _fpopEl = el;
+    return el;
+  }
+  document.addEventListener('click', e => {
+    if (_fpopEl && !_fpopEl.contains(e.target) && !e.target.closest('[data-cact="media"],[data-cact="model"],[data-cact="mediaparams"]')) closeFPop();
+  });
+
   function composerHTML(scope) {
     return `<div class="composer-box" data-scope="${scope}">
       <div class="ref-strip"></div>
       <textarea class="composer-input" placeholder="描述你想创作的画面…"></textarea>
       <div class="composer-foot">
         <div class="tools-left">
-          <button class="tool" data-cact="skill">▦ 技能 <span data-role="skillLabel"></span></button>
-          <button class="tool" data-cact="size">▣ 尺寸 <span data-role="sizeLabel"></span></button>
-          <button class="tool mask-tool hidden" data-cact="mask">◎ 绘制遮罩</button>
-          <button class="tool" data-cact="params">⚙ 参数</button>
-          <button class="tool" data-cact="polish" title="生成前先用 AI 润色提示词（来源在参数设置的「提示词润色」里选）">✨ 润色 <span data-role="polishLabel"></span></button>
-          <button class="tool" data-cact="reverse" title="用本地 Qwen3-VL 把第 1 张参考图反推成提示词">🔍 反推</button>
+          <button class="fpill" data-cact="media"><span class="fpill-ico" data-role="mediaIcon">🖼</span><span class="fpill-txt" data-role="mediaLabel">图片</span><em class="fpill-caret">⌄</em></button>
+          <button class="fpill" data-cact="model"><span class="fpill-ico" data-role="modelIcon">✦</span><span class="fpill-txt" data-role="modelLabel">文生图</span><em class="fpill-caret">⌄</em></button>
+          <button class="fpill" data-cact="mediaparams"><span class="fpill-ico">▣</span><span class="fpill-txt" data-role="mpLabel">1:1 / 1024</span><em class="fpill-caret">⌄</em></button>
+          <button class="fpill fpill-accent" data-cact="params"><span class="fpill-ico">⚙</span><span class="fpill-txt" data-role="paramsLabel">生图参数</span><em class="fpill-caret">⌄</em></button>
+          <button class="tool mask-tool hidden" data-cact="mask">◎ 遮罩</button>
         </div>
         <div class="tools-right"><span class="img-count" data-role="count"></span><button class="send-btn" data-cact="send">↑</button></div>
       </div>
       <input type="file" class="file-input" multiple accept="image/*" hidden>
     </div>`;
+  }
+
+  /* ---------------- v1.2 四个胶囊的菜单 ---------------- */
+  function openMediaMenu(anchor) {
+    const cur = state.mediaType || 'image';
+    const items = [
+      { id: 'image', ico: '🖼', label: '图片', desc: 'Qwen-Image 生图 / 编辑' },
+      { id: 'video', ico: '🎬', label: '视频', desc: 'MiniMax H3 生成视频' },
+    ];
+    const el = openFPop(anchor, '<div class="fpop-sec">创作类型</div>' + items.map(it =>
+      `<div class="fpop-item ${it.id === cur ? 'sel' : ''}" data-media="${it.id}">
+         <span class="fi-ico">${it.ico}</span>
+         <span class="fi-main"><b>${it.label}</b><small>${it.desc}</small></span>
+         <span class="fi-check">✓</span>
+       </div>`).join(''), 260);
+    el.addEventListener('click', e => {
+      const row = e.target.closest('[data-media]'); if (!row) return;
+      state.mediaType = row.dataset.media;
+      if (state.mediaType === 'video' && !state.video) {
+        state.video = { fn: 'mm-i2v', ratio: '16:9', quality: '720p', duration: 5, count: 1 };
+      }
+      closeFPop();
+      closeDrawer();
+      updateComposer();
+      heroNotice(state.mediaType === 'video' ? '已切换到视频模式（MiniMax H3）' : '已切换到图片模式');
+    });
+  }
+
+  function openModelMenu(anchor) {
+    const groups = state.mediaType === 'video' ? videoFuncGroups() : imageFuncGroups();
+    const cur = currentFuncItem();
+    let html = '';
+    groups.forEach((g, gi) => {
+      if (gi > 0) html += '<div class="fpop-div"></div>';
+      html += '<div class="fpop-sec">' + g.group + '</div>';
+      html += g.items.map(it => `
+        <div class="fpop-item ${it.id === cur.id ? 'sel' : ''}" data-func="${it.id}">
+          <span class="fi-ico">${it.ico}</span>
+          <span class="fi-main"><b>${it.label}</b><small>${it.desc || ''}</small></span>
+          <span class="fi-check">✓</span>
+        </div>`).join('');
+    });
+    const el = openFPop(anchor, html, 300);
+    el.addEventListener('click', e => {
+      const row = e.target.closest('[data-func]'); if (!row) return;
+      const id = row.dataset.func;
+      if (state.mediaType === 'video') {
+        state.video = state.video || {};
+        state.video.fn = id;
+      } else {
+        const it = imageFuncGroups().flatMap(g => g.items).find(x => x.id === id);
+        if (it) {
+          state.skill = it.skill;
+          if (it.skill === 'inpaint' && !state.mask) heroNotice('提示：局部重绘需要先点「遮罩」涂抹要修改的区域');
+          if (it.skill !== 'inpaint') state.mask = null;
+          const unet = pickUnet(!!it.turbo);
+          if (unet) state.params.unet = unet;
+          commitParamChange();
+        }
+      }
+      closeFPop();
+      updateComposer();
+    });
+  }
+
+  function openMediaParams(anchor) {
+    if (state.mediaType === 'video') return openVideoParamsPop(anchor);
+    const p = state.params;
+    const ratios = ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3'];
+    const ress = ['768', '1024', '1536', '2048'];
+    const batches = [1, 2, 4];
+    const curRatio = isPresetSize() ? p.ratio : '';
+    const curRes = isPresetSize() ? p.res_level : '';
+    const html = `
+      <div class="fpop-sec">图片尺寸</div>
+      <div class="fpop-row"><label>比例</label><div class="fpop-chips">${ratios.map(r =>
+        `<span class="fpop-chip ${r === curRatio ? 'sel' : ''}" data-ratio="${r}">${r}</span>`).join('')}</div></div>
+      <div class="fpop-row"><label>分辨率</label><div class="fpop-chips">${ress.map(r =>
+        `<span class="fpop-chip ${String(r) === String(curRes) ? 'sel' : ''}" data-res="${r}">${r}</span>`).join('')}</div></div>
+      <div class="fpop-div"></div>
+      <div class="fpop-row"><label>生成张数</label><div class="fpop-chips">${batches.map(b =>
+        `<span class="fpop-chip ${Number(p.batch || 1) === b ? 'sel' : ''}" data-batch="${b}">${b} 张</span>`).join('')}</div></div>
+      <div class="fpop-div"></div>
+      <div class="fpop-row"><label>提示词润色</label>
+        <label class="fpop-switch"><input type="checkbox" id="fpPolish" ${p.polish ? 'checked' : ''}><span>提交前 AI 润色</span></label></div>
+      <div class="fpop-row"><label>图片反推</label>
+        <label class="fpop-switch"><input type="checkbox" id="fpReverse" ${p.auto_reverse ? 'checked' : ''}><span>带参考图时先反推</span></label></div>`;
+    const el = openFPop(anchor, html, 330);
+    el.addEventListener('click', e => {
+      const chip = e.target.closest('[data-ratio],[data-res],[data-batch]');
+      if (chip) {
+        // 比例 / 分辨率必须走 selectPreset：它负责换算 width/height 并切到「按比例」
+        if (chip.dataset.ratio || chip.dataset.res) {
+          const ratio = chip.dataset.ratio || (isPresetSize() ? p.ratio : '1:1');
+          const res = chip.dataset.res || (isPresetSize() ? p.res_level : '1024');
+          selectPreset(ratio, res);
+        }
+        if (chip.dataset.batch) { p.batch = Number(chip.dataset.batch); commitParamChange(); }
+        closeFPop(); openMediaParams(anchor);
+      }
+    });
+    el.addEventListener('change', e => {
+      if (e.target.id === 'fpPolish') { p.polish = e.target.checked; commitParamChange(); updateComposer(); }
+      if (e.target.id === 'fpReverse') { p.auto_reverse = e.target.checked; commitParamChange(); updateComposer(); }
+    });
+  }
+
+  function openVideoParamsPop(anchor) {
+    const v = state.video || {};
+    const html = `
+      <div class="fpop-sec">视频参数</div>
+      <div class="fpop-row"><label>比例</label><div class="fpop-chips">${['16:9', '9:16', '1:1'].map(r =>
+        `<span class="fpop-chip ${r === (v.ratio || '16:9') ? 'sel' : ''}" data-vratio="${r}">${r}</span>`).join('')}</div></div>
+      <div class="fpop-row"><label>质量</label><div class="fpop-chips">${['720p', '1080p'].map(q =>
+        `<span class="fpop-chip ${q === (v.quality || '720p') ? 'sel' : ''}" data-vquality="${q}">${q}</span>`).join('')}</div></div>
+      <div class="fpop-row"><label>时长</label><div class="fpop-chips">${[5, 10].map(d =>
+        `<span class="fpop-chip ${Number(v.duration || 5) === d ? 'sel' : ''}" data-vdur="${d}">${d} 秒</span>`).join('')}</div></div>
+      <div class="fpop-row"><label>生成个数</label><div class="fpop-chips">${[1, 2, 4].map(c =>
+        `<span class="fpop-chip ${Number(v.count || 1) === c ? 'sel' : ''}" data-vcount="${c}">${c} 个</span>`).join('')}</div></div>
+      <div class="fpop-div"></div>
+      <div class="fpop-row"><label>提示词润色</label>
+        <label class="fpop-switch"><input type="checkbox" id="fvPolish" ${v.polish ? 'checked' : ''}><span>提交前 AI 润色</span></label></div>`;
+    const el = openFPop(anchor, html, 320);
+    el.addEventListener('click', e => {
+      const chip = e.target.closest('[data-vratio],[data-vquality],[data-vdur],[data-vcount]');
+      if (chip) {
+        const vv = state.video || (state.video = {});
+        if (chip.dataset.vratio) vv.ratio = chip.dataset.vratio;
+        if (chip.dataset.vquality) vv.quality = chip.dataset.vquality;
+        if (chip.dataset.vdur) vv.duration = Number(chip.dataset.vdur);
+        if (chip.dataset.vcount) vv.count = Number(chip.dataset.vcount);
+        commitParamChange();
+        closeFPop(); openVideoParamsPop(anchor);
+        updateComposer();
+      }
+    });
+    el.addEventListener('change', e => {
+      if (e.target.id === 'fvPolish') { (state.video || (state.video = {})).polish = e.target.checked; commitParamChange(); updateComposer(); }
+    });
   }
 
   function mountComposer(scope) {
@@ -788,6 +1026,9 @@
       if (act === 'send') generate();
       else if (act === 'params') openDrawer();
       else if (act === 'mask') openMask();
+      else if (act === 'media') openMediaMenu(b);
+      else if (act === 'model') openModelMenu(b);
+      else if (act === 'mediaparams') openMediaParams(b);
       else if (act === 'skill') showSkillPopover(b);
       else if (act === 'size') openSizeCard(b);
       else if (act === 'polish') togglePolish();
@@ -814,7 +1055,23 @@
   function updateComposer() {
     const sk = skill();
     $$('.composer-box').forEach(box => {
-      $('[data-role="skillLabel"]', box).textContent = sk.name;
+      /* v1.2 四胶囊标签 */
+      const isVideo = (state.mediaType === 'video');
+      const mediaLabel = $('[data-role="mediaLabel"]', box);
+      if (mediaLabel) mediaLabel.textContent = isVideo ? '视频' : '图片';
+      const mediaIcon = $('[data-role="mediaIcon"]', box);
+      if (mediaIcon) mediaIcon.textContent = isVideo ? '🎬' : '🖼';
+      $('[data-cact="media"]', box) && $('[data-cact="media"]', box).classList.toggle('on', isVideo);
+      const curFn = currentFuncItem();
+      const modelLabel = $('[data-role="modelLabel"]', box);
+      if (modelLabel) modelLabel.textContent = curFn ? (curFn.label + (isVideo ? '' : (curFn.turbo ? ' · Turbo' : ''))) : (isVideo ? '视频功能' : sk.name);
+      const modelIcon = $('[data-role="modelIcon"]', box);
+      if (modelIcon && curFn) modelIcon.textContent = curFn.ico;
+      const mpLabel = $('[data-role="mpLabel"]', box);
+      if (mpLabel) mpLabel.textContent = mediaParamsText();
+      const paramsLabel = $('[data-role="paramsLabel"]', box);
+      if (paramsLabel) paramsLabel.textContent = isVideo ? '视频参数' : '生图参数';
+      $('[data-role="skillLabel"]', box) && ($('[data-role="skillLabel"]', box).textContent = sk.name);
       const sizeEl = $('[data-role="sizeLabel"]', box);
       if (sizeEl) {
         // 尺寸标签统一由 sizeLabelText() 决定：自动且带参考图时是「跟随图1」，
@@ -828,7 +1085,7 @@
       const polishBtn = $('[data-cact="polish"]', box);
       if (polishBtn) polishBtn.classList.toggle('accent', !!state.params.polish);
       $('[data-role="count"]', box).textContent = state.images.length + '/' + cap();
-      $('.composer-input', box).placeholder = sk.placeholder || '描述你想创作的画面…';
+      $('.composer-input', box).placeholder = isVideo ? '描述视频画面、镜头运动与氛围…' : (sk.placeholder || '描述你想创作的画面…');
       $('.mask-tool', box).classList.toggle('hidden', !sk.needs_mask);
       $('[data-cact="mask"]', box).classList.toggle('accent', !!state.mask);
       $('.composer-input', box).value = state.draft;
@@ -1466,7 +1723,38 @@
   }
 
   /* ---------------- 参数抽屉 ---------------- */
-  function openDrawer() { $('#drawer').classList.add('open'); $('#drawerMask').classList.add('open'); }
+  function openDrawer() {
+    const isVideo = (state.mediaType === 'video');
+    // 图片参数 / 视频参数共用一个全屏居中弹窗，按模态切换内容
+    $$('.drawer .img-params').forEach(el => el.classList.toggle('hidden', isVideo));
+    $$('.drawer .video-params').forEach(el => el.classList.toggle('hidden', !isVideo));
+    const h2 = $('.drawer-head h2');
+    if (h2) h2.innerHTML = isVideo
+      ? '<span class="dh-ico">🎬</span> 视频参数'
+      : '<span class="dh-ico">▥</span> 生图参数';
+    if (isVideo) fillVideoParamsForm();
+    $('#drawer').classList.add('open'); $('#drawerMask').classList.add('open');
+  }
+  function fillVideoParamsForm() {
+    const v = state.video || (state.video = { fn: 'mm-i2v', ratio: '16:9', quality: '720p', duration: 5, count: 1 });
+    const set = (id, val) => { const el = $('#' + id); if (el && val != null) el.value = String(val); };
+    set('v_fn', v.fn); set('v_ratio', v.ratio); set('v_quality', v.quality);
+    set('v_duration', v.duration); set('v_count', v.count);
+    set('v_fps', v.fps); set('v_audio', v.audio);
+    const neg = $('#v_negative'); if (neg) neg.value = v.negative || '';
+  }
+  function readVideoParamsForm() {
+    const v = state.video || (state.video = {});
+    const get = (id) => { const el = $('#' + id); return el ? el.value : ''; };
+    v.fn = get('v_fn') || v.fn || 'mm-i2v';
+    v.ratio = get('v_ratio') || '16:9';
+    v.quality = get('v_quality') || '720p';
+    v.duration = Number(get('v_duration') || 5);
+    v.count = Number(get('v_count') || 1);
+    v.fps = Number(get('v_fps') || 24);
+    v.audio = get('v_audio') || 'on';
+    const neg = $('#v_negative'); v.negative = neg ? neg.value : (v.negative || '');
+  }
   function closeDrawer() { $('#drawer').classList.remove('open'); $('#drawerMask').classList.remove('open'); }
 
   /* 独立的图片尺寸卡片：居中小卡片，和生成参数抽屉分开 */
@@ -2034,6 +2322,28 @@
     generating = true;
     $$('.send-btn').forEach(b => b.disabled = true);
     try {
+      // 视频模态：UI 已就绪，生成链路下一阶段接入
+      if ((state.mediaType || 'image') === 'video') {
+        generating = false;
+        $$('.send-btn').forEach(b => b.disabled = false);
+        clearCvProgress();
+        confirmDialog('视频模态已就绪 🎬\n\n当前选中：' + ((currentFuncItem() || {}).label || '视频') +
+          '（' + mediaParamsText() + '）\n\nMiniMax H3 模型权重已检测到，视频生成工作流将在下一阶段接入。现在可以在图片模式继续创作。');
+        return;
+      }
+      // 自动反推：图片模式下开启且带参考图时，先用第 1 张参考图反推成提示词（草稿会被反推结果覆盖）
+      if (state.params.auto_reverse && !override && (payload.images || []).length) {
+        setCvProgress('先反推参考图提示词…', 4);
+        try {
+          const provider = state.params.polish_provider || 'local';
+          const rr = await post('/api/reverse', {
+            image: payload.images[0], llm: llmPayload(), provider,
+            api_key: state.params.deepseek_key || '',
+            vision_model: state.params.deepseek_vision || DEEPSEEK_VISION_DEFAULT,
+          });
+          if (rr.text) { payload.prompt = rr.text; setCvProgress('反推完成，继续处理…', 5); }
+        } catch (e) { heroNotice('自动反推失败，使用原文：' + e.message, 'error'); }
+      }
       // 提示词润色：开启时先润色再提交；重新生成（override）沿用已有文本不再叠加
       // 图生图 / 图片编辑 / 局部重绘会把参考图一起传给模型（多模态润色，结果与参考图对齐）
       if (state.params.polish && payload.prompt && !override) {
