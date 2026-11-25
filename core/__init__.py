@@ -8,6 +8,7 @@ from core.comfy_files import ComfyFiles
 from core.grid_stitch import GridStitcher
 from core.image_edit import ImageEditor
 from core.instance import InstanceInfo
+from core.layouts import CanvasLayouts
 from core.images import ImageManager
 from core.monitor import SystemMonitor
 from core.progress import ComfyEventBus
@@ -115,6 +116,7 @@ def build_services() -> dict:
     library = AssetLibrary(files)
     # 实例能力探测：按 comfy_url 缓存可用节点 / 模型，远程实例缺什么一目了然
     instance = InstanceInfo(comfy)
+    layouts = CanvasLayouts()
     tasks = TaskManager(projects, workflows, comfy, settings)
     tasks.instance = instance
     # 纯 Python 工作流（网格拼接）用的本地执行器：任务路由到 _run_python 时用它
@@ -151,6 +153,7 @@ def build_services() -> dict:
         "editor": editor,
         "stitcher": stitcher,
         "instance": instance,
+        "layouts": layouts,
         "files": files,
         "library": library,
         "monitor": monitor,

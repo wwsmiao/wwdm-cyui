@@ -20,6 +20,16 @@ def _now() -> int:
     return int(time.time())
 
 
+def _image_size(path):
+    """读图片宽高；视频 / 损坏文件返回 None。"""
+    try:
+        from PIL import Image
+        with Image.open(path) as handle:
+            return handle.size
+    except Exception:
+        return None
+
+
 class ProjectManager:
     def __init__(self):
         self.store = JsonStore(PROJECTS_FILE, DEFAULT_DB)
@@ -202,7 +212,42 @@ class ProjectManager:
     def tasks_for(self, project_id: str) -> list:
         db = self.store.read()
         tasks = [t for t in db["tasks"].values() if t["project_id"] == project_id]
-        return sorted(tasks, key=lambda t: t["created_at"], reverse=True)
+        tasks.sort(key=lambda t: t["created_at"], reverse=True)
+        # 记录里没图、但作品目录里躺着文件（进程被杀 / 旧版本写库失败 / 手动挪过文件）：
+        # 自动按文件名补回 images，避免刷新后卡片和画布节点空掉
+        for task in tasks:
+            if task.get("status") == "done" and not (task.get("images") or []):
+                self._recover_images(task)
+        return tasks
+
+    MEDIA_SUFFIX = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif",
+                    ".mp4", ".webm", ".mov", ".mkv",
+                    ".mp3", ".wav", ".flac", ".ogg", ".m4a"}
+
+    def _recover_images(self, task: dict) -> None:
+        """作品目录里有文件但任务记录没记上：把地址补回记录。"""
+        from urllib.parse import quote
+        from config import project_output_dir
+
+        project = self.get(task.get("project_id", "")) or self.active()
+        folder = project_output_dir(project.get("name", "Untitled")) / task["id"]
+        if not folder.is_dir():
+            return
+        files = sorted(
+            (f for f in folder.iterdir() if f.is_file() and f.suffix.lower() in self.MEDIA_SUFFIX),
+            key=lambda f: f.name,
+        )
+        if not files:
+            return
+        urls = [f"/api/output/{quote(folder.parent.name)}/{task['id']}/{quote(f.name)}"
+                for f in files]
+        changes = {"images": urls}
+        size = _image_size(files[0])
+        if size:
+            changes["width"], changes["height"] = size
+        self.update_task(task["id"], **changes)
+        task.update(changes)
+        print(f"[补图] {task['id']} 记录里没有图片，已从磁盘补回 {len(urls)} 个", flush=True)
 
     def delete_task(self, task_id: str) -> bool:
         self.store.update(lambda db: db["tasks"].pop(task_id, None))

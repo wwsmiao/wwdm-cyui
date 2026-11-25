@@ -10,6 +10,9 @@ const API = {
   deleteProject: (id) => request(`/api/projects/${id}`, { method: "DELETE" }),
 
   listWorkflows: () => request("/api/workflows"),
+  projectLayout: (id) => request(`/api/projects/${id}/layout`),
+  saveProjectLayout: (id, layout) =>
+    request(`/api/projects/${id}/layout`, { method: "PUT", body: { layout } }),
   workflowParams: (id) => request(`/api/workflows/${encodeURIComponent(id)}/params`),
   generate: (payload) => request("/api/generate", { method: "POST", body: payload }),
   runPrompt: (body, opts = {}) => request("/api/prompt/run", { method: "POST", body, ...opts }),

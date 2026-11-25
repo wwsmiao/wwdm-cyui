@@ -484,3 +484,7 @@
 
 /* 拖节点时不要顺带选中文本（从文本区域起拖也一样） */
 .cv-node.dragging, .cv-node.dragging * { user-select: none !important; cursor: grabbing !important; }
+
+/* 节点名：双击可改名，给一点可点提示 */
+.cv-node-name { cursor: text; }
+.cv-node-name:hover { color: var(--accent); text-decoration: underline dotted rgba(200,255,90,.5); }

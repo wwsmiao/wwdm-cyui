@@ -40,6 +40,47 @@ const Canvas = {
   save() {
     try { localStorage.setItem(this.STORE, JSON.stringify(this.layouts)); }
     catch { /* 隐私模式下写不进去也不影响当次使用 */ }
+    // 服务端也存一份：localStorage 换浏览器 / 换域名 / 清缓存就没了，服务端才是底稿
+    this.queueServerSave();
+  },
+
+  queueServerSave() {
+    const pid = this.projectId || State.activeId;
+    if (!pid) return;
+    clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => {
+      const layout = this.layouts[pid];
+      if (!layout) return;
+      API.saveProjectLayout(pid, layout).catch(() => { /* 网络抖动就先留在本地 */ });
+    }, 500);
+  },
+
+  /* 拉服务端布局：服务端有就以它为准（本机缓存当首屏），服务端为空而本地有则迁移上去 */
+  async hydrate(projectId = State.activeId) {
+    if (!projectId || this._hydrating === projectId) return;
+    this._hydrating = projectId;
+    const score = (layout) => ["nodes", "gens", "texts", "assets"]
+      .reduce((sum, key) => sum + Object.keys(layout?.[key] || {}).length, 0);
+    try {
+      const result = await API.projectLayout(projectId);
+      const remote = result?.layout || {};
+      const local = this.layouts[projectId] || {};
+      if (!result?.exists) {
+        // 服务端从没存过：把本地旧布局迁上去（老版本只用 localStorage）
+        if (score(local)) {
+          this.layouts[projectId] = local;
+          API.saveProjectLayout(projectId, local).catch(() => {});
+        }
+      } else {
+        // 服务端存过就以它为准，哪怕是空的（用户可能主动清空了画布）
+        this.layouts[projectId] = remote;
+        try { localStorage.setItem(this.STORE, JSON.stringify(this.layouts)); } catch { /* 忽略 */ }
+      }
+    } catch { /* 服务端暂时不可用：继续用本地缓存，下次再同步 */ }
+    finally {
+      this._hydrating = "";
+    }
+    if (projectId === State.activeId) this.render();
   },
 
   layout() {
@@ -74,6 +115,8 @@ const Canvas = {
     };
     State.zoom = this.camera.zoom;
     $("#zoomLabel").textContent = `${Math.round(this.camera.zoom * 100)}%`;
+    // 切项目 / 首次进画布：把服务端布局拉下来（本地缓存先顶着，拉到后重渲染）
+    this.hydrate(this.projectId);
   },
 
   saveCamera() {
@@ -116,7 +159,7 @@ const Canvas = {
       nodes.push({
         id, type: "asset", kind, asset, ref,
         title: this.labelOf(kind, "asset"),
-        name: asset.name || asset.origin || "素材",
+        name: asset.alias || asset.name || asset.origin || "素材",
         caption: asset.origin || "",
         media: url,
         width: Number(asset.width) || 0,
@@ -140,7 +183,7 @@ const Canvas = {
     Object.entries(layout.texts || {}).forEach(([id, text]) => {
       nodes.push({
         id, type: "text", kind: "text", textNode: text,
-        title: "文本", name: "文本节点", caption: text.text || "", media: "",
+        title: "文本", name: text.title || "文本节点", caption: text.text || "", media: "",
       });
     });
     nodes.forEach((node, index) => {
@@ -154,6 +197,7 @@ const Canvas = {
   },
 
   resultName(gen) {
+    if (gen.alias) return gen.alias;
     const list = gen.results || (gen.result ? [gen.result] : []);
     const index = Math.min(Number(gen.resultIndex) || 0, Math.max(0, list.length - 1));
     const current = String(list[index] || "");
@@ -162,6 +206,69 @@ const Canvas = {
     if (task && window.Works?.titleOf) return Works.titleOf(task, current);
     return decodeURIComponent(current.split("/").pop() || "") || this.workflowName(gen.workflow);
   },
+
+  /* 节点对应的作品任务：先按 taskIds，再按结果地址反查（素材节点 / 旧节点没有 taskIds） */
+  nodeTaskOf(node) {
+    const tasks = State.tasks || [];
+    const ids = node?.gen?.taskIds || [];
+    const url = node?.type === "gen" ? (node.gen?.result || "") : (node.media || "");
+    return tasks.find((task) => ids.includes(task.id))
+      || tasks.find((task) => url && (task.images || []).includes(url))
+      || null;
+  },
+
+  /* 双击节点名字：作品图/视频改作品里的素材名（卡片、图库同步），其它节点改本节点显示名 */
+  async renameNode(nodeId) {
+    const node = this.byId(nodeId);
+    if (!node) return;
+    if (node.type === "text") {
+      const name = await Dialog.prompt({
+        title: "重命名文本节点",
+        label: "给这个文本节点起个名字（留空恢复「文本节点」）",
+        value: node.textNode?.title || "",
+        placeholder: "例如：人物提示词",
+        confirmText: "保存",
+      });
+      if (name === null) return;
+      const text = this.layout().texts[nodeId];
+      if (text) text.title = String(name).trim();
+      this.save();
+      this.render();
+      return;
+    }
+
+    const task = this.nodeTaskOf(node);
+    const url = node.type === "gen" ? (node.gen?.result || "") : (node.media || "");
+    // 作品里真实存在的文件：改作品记录，卡片 / 图库 / 下载名一起变
+    if (task && url && String(url).startsWith("/api/output/")) {
+      const changed = await Works.renameMedia(task, url);
+      if (changed) {
+        if (node.type === "gen" && node.gen) node.gen.alias = "";
+        this.save();
+        this.render();
+      }
+      return;
+    }
+    // 外部素材 / 没有任务记录的节点：只改本节点显示名
+    const name = await Dialog.prompt({
+      title: "重命名节点",
+      label: "节点上显示的名字（留空恢复默认）",
+      value: node.name || "",
+      placeholder: "例如：参考图 A",
+      confirmText: "保存",
+    });
+    if (name === null) return;
+    const clean = String(name).trim();
+    if (node.type === "gen" && node.gen) node.gen.alias = clean;
+    else {
+      const asset = this.layout().assets[nodeId];
+      if (asset) asset.alias = clean;
+    }
+    this.save();
+    this.render();
+  },
+
+
 
   byId(id) { return this.nodes.find((node) => node.id === id) || null; },
 
@@ -234,12 +341,12 @@ const Canvas = {
         const since = this._missing[gid] || (this._missing[gid] = now);
         if (now - since < 8000) return;
         delete this._missing[gid];
-        if ((gen.results || []).length || gen.result || gen.status !== "idle") {
-          gen.results = [];
-          gen.result = "";
-          gen.status = "idle";
-          gen.progress = 0;
-          gen.taskIds = [];
+        // 任务暂时查不到（列表还没刷新 / 服务端刚重启）时**不要清掉已经拿到的结果**：
+        // 以前这里会把 results 清空并写回 localStorage，一次网络抖动就把画布内容永久抹掉。
+        // 只把还在跑的状态收一下，等任务列表回来会自动重新对上。
+        if (["queued", "submitting", "running"].includes(gen.status)) {
+          gen.status = (gen.results || []).length ? "done" : "idle";
+          gen.progress = (gen.results || []).length ? 100 : 0;
           changed = true;
         }
         return;
@@ -522,7 +629,7 @@ const Canvas = {
       <textarea class="cv-text-node" data-text-node="${escapeHtml(node.id)}"
         placeholder="输入文本 / 提示词…" spellcheck="false">${escapeHtml(text)}</textarea>
     </div>`;
-    return this.materialCardHtml(node, media, { nameNode: `<span class="cv-node-name">文本节点</span>` });
+    return this.materialCardHtml(node, media, { nameNode: `<span class="cv-node-name" title="双击改名">${escapeHtml(node.name || "文本节点")}</span>` });
   },
 
   genStatus(gen) {
@@ -1884,23 +1991,11 @@ const Canvas = {
 
     nodesLayer.addEventListener("dblclick", (event) => {
       const el = event.target.closest(".cv-node");
-      if (el) {
-        const node = this.byId(el.dataset.node);
-        if (node?.type === "text" || (node?.type === "gen" && node.gen?.kind === "prompt")) {
-          return this.openTextEditor(node.id);
-        }
-      }
-      const nameEl = event.target.closest(".cv-node-name");
-      if (nameEl) {
-        const node = this.byId(nameEl.closest(".cv-node")?.dataset.node);
-        if (node?.type === "gen" || node?.type === "asset") {
-          const task = (State.tasks || []).find((item) => (node.gen?.taskIds || []).includes(item.id));
-          const url = node.type === "gen" ? (node.gen?.result || "") : node.media;
-          if (task && url) {
-            Works.renameMedia(task, url).then((changed) => { if (changed) this.render(); });
-            return;
-          }
-        }
+      const node = el ? this.byId(el.dataset.node) : null;
+      // 双击节点名字：所有类型都进改名（文本节点改标题，图片/视频改素材名）
+      if (node && event.target.closest(".cv-node-name")) return void this.renameNode(node.id);
+      if (node && (node.type === "text" || (node.type === "gen" && node.gen?.kind === "prompt"))) {
+        return this.openTextEditor(node.id);
       }
       const media = event.target.closest("[data-media]");
       if (media) this.previewNode(media.dataset.media);

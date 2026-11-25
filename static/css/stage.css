@@ -180,3 +180,11 @@
   pointer-events: none;
 }
 .lightbox-zoom[hidden] { display: none; }
+
+/* 卡片上显示改过名的素材名（没改过不显示，避免和提示词重复） */
+.work-name {
+  font-size: 11px; line-height: 1.5; color: var(--accent);
+  margin-bottom: 4px; cursor: text;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.work-name:hover { text-decoration: underline dotted rgba(200,255,90,.5); }

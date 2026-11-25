@@ -79,6 +79,9 @@ const Works = {
       : `<span class="res-badge">${task.width || cw} × ${task.height || ch}</span>`;
     const countBadge = task.images.length > 1
       ? `<span class="count-badge">${task.images.length} 张</span>` : "";
+    const customName = (task.image_names || {})[first] || "";
+    const nameRow = customName
+      ? `<div class="work-name" title="双击可改名">${escapeHtml(customName)}</div>` : "";
     const note = task.status === "error"
       ? `<div class="work-prompt" title="${escapeHtml(task.error)}">${escapeHtml(task.error)}</div>`
       : `<div class="work-prompt" title="${escapeHtml(task.prompt)}">${escapeHtml(task.prompt)}</div>`;
@@ -95,7 +98,7 @@ const Works = {
     return `
       <article class="work-card${extraClass}" data-id="${task.id}" ${style}>
         <div class="work-cover ${task.images.length ? "with-image" : ""}">${cover}${badge}${countBadge}${resBadge}${overlay}</div>
-        <div class="work-meta">${note}
+        <div class="work-meta">${nameRow}${note}
           <div class="work-sub">
             <span class="tag">${escapeHtml((State.workflows.find((w) => w.id === task.workflow) || {}).name || task.workflow)}</span>
             <span>${timeLabel(task.created_at)}</span>${actions}
@@ -141,6 +144,14 @@ const Works = {
     $$(".work-card").forEach((card) => {
       const media = card.querySelector(".work-cover img, .work-cover video");
       if (media) media.addEventListener("click", () => this.preview(card.dataset.id, media.getAttribute("src")));
+      card.addEventListener("dblclick", (event) => {
+        if (event.target.closest("button, a")) return;
+        const task = State.tasks.find((item) => item.id === card.dataset.id);
+        const url = (task?.images || [])[0];
+        if (!task || !url) return;
+        event.preventDefault();
+        this.renameMedia(task, url).then((changed) => { if (changed) this.render(); });
+      });
     });
     $$("[data-cancel]").forEach((btn) => btn.addEventListener("click", async (event) => {
       event.stopPropagation();
@@ -621,3 +632,6 @@ const Works = {
     });
   },
 };
+
+// Works 是顶层 const，不挂到 window 上时（card-menu / gallery / 画布）判断会永远拿到 undefined
+window.Works = Works;
