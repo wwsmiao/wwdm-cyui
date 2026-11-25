@@ -7,6 +7,7 @@ from pathlib import Path
 
 from config import DEFAULT_PARAMS, OUTPUT_DIR
 from core.comfy import ComfyError
+from core.log import task_cancelled, task_done, task_failed, task_start
 from core.models import resolve
 from core.naming import output_name
 from core.workflows import resolve_params_size
@@ -25,6 +26,8 @@ class TaskManager:
         self._graph_nodes = {}
         self._done_nodes = {}
         self._node_step = {}
+        # 任务开始时间：日志里算耗时用
+        self._started = {}
         # 提示词这类不落库的短任务，只在内存里跟着进度走
         self._jobs = {}
         self._job_prompt = {}
@@ -45,6 +48,7 @@ class TaskManager:
         }
         self._jobs[job["id"]] = job
         self._prune_jobs()
+        task_start(job["id"], label)
         return dict(job)
 
     def attach_job(self, job_id: str, prompt_id: str) -> None:
@@ -66,6 +70,11 @@ class TaskManager:
         job["error"] = error
         job["node"] = ""
         job["updated_at"] = int(time.time())
+        elapsed = max(0.0, time.time() - (job.get("created_at") or time.time()))
+        if error:
+            task_failed(job["id"], job.get("label") or "提示词", elapsed, error)
+        else:
+            task_done(job["id"], job.get("label") or "提示词", elapsed)
         self._job_prompt.pop(job.get("prompt_id", ""), None)
 
     def list_jobs(self) -> list:
@@ -133,6 +142,10 @@ class TaskManager:
             self.pool.submit(self._run, task["id"])
         return task
 
+    def _name_of(self, workflow_id: str) -> str:
+        wf = self.workflows.get_workflow(workflow_id)
+        return (getattr(wf, "name", "") or workflow_id or "未知工作流")
+
     # ---------- 实例适配 ----------
     def _fit_to_instance(self, workflow_id: str, params: dict) -> tuple:
         """把设置里的模型名 / LoRA 名对到当前 ComfyUI 实例上。
@@ -178,11 +191,17 @@ class TaskManager:
         if task_id in self._cancelled:
             self._cancelled.discard(task_id)
             self.projects.update_task(task_id, status="cancelled", progress=0)
+            task = self.projects.get_task(task_id) or {}
+            task_cancelled(task_id, self._name_of(task.get("workflow", "")))
             return
         task = self.projects.get_task(task_id)
         if not task:
             return
         stitcher = getattr(self, "stitcher", None)
+        name = self._name_of(task.get("workflow", ""))
+        started = time.time()
+        self._started[task_id] = started
+        task_start(task_id, name)
         try:
             if stitcher is None:
                 raise ComfyError("本地执行器还没装配好（重启一下创作台）")
@@ -213,12 +232,15 @@ class TaskManager:
                 "images": result.get("used"), "label": label,
             }
             self.projects.update_task(task_id, params=params)
+            task_done(task_id, name, time.time() - started, 1)
         except Exception as exc:
             if task_id in self._cancelled:
                 return
             self.projects.update_task(
                 task_id, status="error", error=str(exc), progress=0)
+            task_failed(task_id, name, time.time() - started, str(exc))
         finally:
+            self._started.pop(task_id, None)
             self._cancelled.discard(task_id)
 
     def interrupt(self) -> bool:
@@ -236,6 +258,8 @@ class TaskManager:
         except ComfyError:
             pass
         self.projects.update_task(task_id, status="cancelled", progress=0)
+        task = self.projects.get_task(task_id) or {}
+        task_cancelled(task_id, self._name_of(task.get("workflow", "")))
         return True
 
     # ---------- 进度换算 ----------
@@ -382,15 +406,21 @@ class TaskManager:
                 self.clear_graph(prompt_id)
 
     def _track(self, task_id: str, prompt_id: str, cfg: dict, timeout: int) -> None:
+        task = self.projects.get_task(task_id) or {}
+        name = self._name_of(task.get("workflow", ""))
+        started = self._started.get(task_id) or time.time()
         try:
             images = self._wait_for_images(task_id, prompt_id, cfg, timeout=timeout)
             self.projects.update_task(task_id, status="done", progress=100,
                                       images=images, node="")
+            task_done(task_id, name, time.time() - started, len(images))
         except Exception as exc:
             if task_id in self._cancelled:
                 return
             self.projects.update_task(task_id, status="error", error=str(exc))
+            task_failed(task_id, name, time.time() - started, str(exc))
         finally:
+            self._started.pop(task_id, None)
             self._cancelled.discard(task_id)
             self.clear_graph(prompt_id)
 
@@ -514,7 +544,12 @@ class TaskManager:
         if task_id in self._cancelled:   # 排队期间已被取消：直接落终态，不再提交 ComfyUI
             self._cancelled.discard(task_id)
             self.projects.update_task(task_id, status="cancelled", progress=0)
+            task_cancelled(task_id, self._name_of(task.get("workflow", "")))
             return
+        name = self._name_of(task.get("workflow", ""))
+        started = time.time()
+        self._started[task_id] = started
+        task_start(task_id, name)
         cfg = self.settings()
         try:
             prompt = task["prompt"]
@@ -567,7 +602,9 @@ class TaskManager:
             self.projects.update_task(
                 task_id, status="error", error=str(exc), progress=0
             )
+            task_failed(task_id, name, time.time() - started, str(exc))
         finally:
+            self._started.pop(task_id, None)
             self._cancelled.discard(task_id)
 
     def _wait_for_images(self, task_id: str, prompt_id: str, cfg: dict,

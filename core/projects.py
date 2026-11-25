@@ -247,7 +247,6 @@ class ProjectManager:
             changes["width"], changes["height"] = size
         self.update_task(task["id"], **changes)
         task.update(changes)
-        print(f"[补图] {task['id']} 记录里没有图片，已从磁盘补回 {len(urls)} 个", flush=True)
 
     def delete_task(self, task_id: str) -> bool:
         self.store.update(lambda db: db["tasks"].pop(task_id, None))

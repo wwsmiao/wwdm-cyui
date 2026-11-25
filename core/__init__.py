@@ -85,13 +85,11 @@ def build_services() -> dict:
         return settings()["client_id"]
 
     projects = ProjectManager()
-    # 旧作品目录迁移一次（幂等）：static/outputs → data/<项目名>_opt
+    # 旧作品目录迁移一次（幂等）：static/outputs → data/<项目名>_opt（失败不影响启动，也不打印）
     try:
-        moved = migrate_project_outputs(projects)
-        if moved:
-            print(f"[迁移] 已把 {moved} 个旧作品目录搬到 data/<项目名>_opt")
-    except Exception as exc:
-        print(f"[迁移] 作品目录迁移失败：{exc}")
+        migrate_project_outputs(projects)
+    except Exception:
+        pass
     workflows = WorkflowManager()
     comfy = ComfyClient(comfy_url, client_id)
     files = ComfyFiles(comfy, settings)
@@ -109,9 +107,8 @@ def build_services() -> dict:
                 db["workflow_params"].update(wp)
 
             settings_store.update(_migrate)
-            print("[迁移] 视频工作流参数已从 minimax-h3-图生视频 迁移到 minimax-h3-首帧生视频")
-    except Exception as exc:
-        print(f"[迁移] 视频工作流参数迁移失败：{exc}")
+    except Exception:
+        pass
 
     library = AssetLibrary(files)
     # 实例能力探测：按 comfy_url 缓存可用节点 / 模型，远程实例缺什么一目了然
@@ -132,16 +129,9 @@ def build_services() -> dict:
 
     # 服务重启后找回没跑完的任务（结果已在 ComfyUI 里就直接落盘，仍在跑就重新挂进度）
     try:
-        recovery = tasks.recover()
-        if recovery.get("completed") or recovery.get("resumed"):
-            print(f"[启动找回] 已完成 {recovery.get('completed', 0)} 个，"
-                  f"恢复跟踪 {recovery.get('resumed', 0)} 个")
-        if recovery.get("error"):
-            print(f"[启动找回] 跳过：{recovery['error']}")
-        elif recovery.get("failed"):
-            print(f"[启动找回] {recovery['failed']} 个任务无法找回，已标记为失败")
-    except Exception as exc:
-        print(f"[启动找回] 异常：{exc}")
+        tasks.recover()
+    except Exception:
+        pass
 
     return {
         "settings_store": settings_store,

@@ -43,7 +43,6 @@ class ComfyEventBus:
                 async with aiohttp.ClientSession() as session:
                     ws = await session.ws_connect(ws_url, heartbeat=15)
                     self._failed = 0
-                    print(f"[事件总线] 已连接 {ws_url}", flush=True)
                     while not self._stop.is_set():
                         try:
                             msg = await asyncio.wait_for(ws.receive(), timeout=1.0)
@@ -56,13 +55,12 @@ class ComfyEventBus:
                             continue
                         try:
                             self._on_event(json.loads(msg.data))
-                        except Exception as exc:   # 单条事件处理失败不能把长连接带崩
-                            print(f"[事件总线] 事件处理失败：{exc!r}", flush=True)
+                        except Exception:   # 单条事件处理失败不能把长连接带崩
                             continue
             except asyncio.CancelledError:
                 break
-            except Exception as exc:
-                print(f"[事件总线] 连接异常：{exc!r}", flush=True)
+            except Exception:
+                pass
             finally:
                 # 主动走关闭握手：否则 ComfyUI 会把这条"半开"连接留在 sockets 里，
                 # 每次广播进度都刷一条 "Cannot write to closing transport"

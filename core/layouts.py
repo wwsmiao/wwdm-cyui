@@ -39,7 +39,6 @@ class CanvasLayouts:
         except (TypeError, ValueError):
             return False
         if size > MAX_BYTES:
-            print(f"[画布] 项目 {project_id} 的布局过大（{size // 1024}KB），已忽略这次保存", flush=True)
             return False
 
         def edit(db):

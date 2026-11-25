@@ -119,8 +119,7 @@ class ComfyClient:
                     if isinstance(value, list) and len(value) == 2 and value[0] == node_id:
                         other["inputs"][field] = upstream
             self.last_adaptations.append(f"摘掉当前实例没有的 LoRA 节点 {node_id}")
-        if self.last_adaptations:
-            print("[模型适配] " + "；".join(self.last_adaptations[:6]), flush=True)
+        # 模型名自动对齐属于内部细节，不打印；对不上的会在提交时报错里写清楚
         return graph
 
     def status(self) -> dict:
