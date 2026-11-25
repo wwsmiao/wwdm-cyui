@@ -56,16 +56,40 @@
 .ref-tile:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-soft); }
 .ref-tile svg { width: 19px; height: 19px; }
 .ref-chips { display: flex; gap: 8px; flex: none; }
+/* 参考素材按类型区分：图片（黄绿）/ 视频（蓝）/ 音频（琥珀）各自的边框与角标 */
 .ref-chip {
   position: relative; flex: none; width: 56px; height: 56px;
-  border-radius: 9px; overflow: hidden; border: 1px solid var(--line); background: #191b1a;
+  border-radius: 9px; overflow: hidden; border: 1px solid rgba(214,245,58,.3); background: #191b1a;
 }
+.ref-chip[data-kind="video"] { border-color: rgba(127,178,255,.52); }
+.ref-chip[data-kind="audio"] { border-color: rgba(240,180,41,.52); }
+.ref-kind {
+  position: absolute; left: 2px; top: 2px; z-index: 3;
+  width: 15px; height: 15px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(16,18,17,.84); color: var(--accent);
+}
+.ref-kind svg { width: 9px; height: 9px; }
+.ref-chip[data-kind="video"] .ref-kind { color: #9cc4ff; }
+.ref-chip[data-kind="audio"] .ref-kind { color: #f0c14b; }
+/* 多参考工作流：素材前面那行「2 图片 · 1 视频」分类统计 */
+.ref-summary {
+  flex: none; display: inline-flex; align-items: center; gap: 3px;
+  height: 22px; padding: 0 9px; border-radius: 11px;
+  background: rgba(255,255,255,.06); color: var(--muted);
+  font-size: 10px; white-space: nowrap;
+}
+.ref-summary b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ref-summary b.k-video { color: #9cc4ff; }
+.ref-summary b.k-audio { color: #f0c14b; }
 .ref-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ref-index {
   position: absolute; left: 0; right: 0; bottom: 0; height: 14px;
   display: grid; place-items: center; font-size: 8.5px; color: #e8ece6;
   background: linear-gradient(to top, rgba(0,0,0,.78), rgba(0,0,0,.2));
 }
+.ref-chip[data-kind="video"] .ref-index { background: linear-gradient(to top, rgba(28,60,108,.9), rgba(0,0,0,.22)); }
+.ref-chip[data-kind="audio"] .ref-index { background: linear-gradient(to top, rgba(92,66,8,.9), rgba(0,0,0,.22)); }
 .ref-chip button {
   position: absolute; top: 2px; right: 2px; width: 16px; height: 16px;
   border-radius: 50%; background: rgba(20,22,21,.78); color: #e6e9e4;

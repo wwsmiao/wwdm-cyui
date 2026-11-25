@@ -120,6 +120,12 @@ const CanvasComposer = {
     return kind === "llm" ? "prompt" : kind;
   },
 
+  /* 当前工作流是不是吃多模态参考（图 + 视频 + 音频一起进同一个任务） */
+  multiModal(wf = this.currentWorkflow()) {
+    const limits = wf?.limits || {};
+    return limits.videos != null || limits.audios != null;
+  },
+
   refs() {
     const state = this.state();
     if (!state) return [];
@@ -200,6 +206,9 @@ const CanvasComposer = {
   renderRefs() {
     const box = $("#cvRefs");
     const refs = this.refs();
+    // 按类型各自编号（图片 1 / 视频 1 / 音频 1），多参考时不会出现「视频 4」这种错位编号
+    const counters = { image: 0, video: 0, audio: 0 };
+    const per = Number(this.currentWorkflow()?.images_per_task) || 1;
     box.innerHTML = refs.map((ref, index) => {
       const kind = ref.kind || "image";
       const preview = kind === "image"
@@ -207,15 +216,16 @@ const CanvasComposer = {
         : kind === "video"
           ? `<video class="ref-video" src="${escapeHtml(this.refUrl(ref))}#t=0.1" muted playsinline preload="metadata"></video>`
           : `<span class="ref-ph">${icon(this.KIND_ICON[kind] || "image")}</span>`;
+      const ordinal = (counters[kind] = (counters[kind] || 0) + 1);
+      const label = per === 2 && kind === "image"
+        ? (index % 2 === 0 ? "首帧" : "尾帧")
+        : `${this.MEDIA_LABEL[kind] || "素材"} ${ordinal}`;
       return `
-        <div class="ref-chip ${ref.auto ? "auto" : ""}" data-cv-ref-preview="${index}" title="点击查看素材 · ${escapeHtml(ref.origin || ref.name)}">
+        <div class="ref-chip ${ref.auto ? "auto" : ""}" data-kind="${kind}" data-cv-ref-preview="${index}" title="${this.MEDIA_LABEL[kind] || "素材"} · ${escapeHtml(ref.origin || ref.name)}">
           ${preview}
+          <span class="ref-kind">${icon(this.KIND_ICON[kind] || "image")}</span>
           ${ref.auto ? `<span class="ref-auto">${icon("ref")}</span>` : ""}
-          <span class="ref-index">${(() => {
-            const per = Number(this.currentWorkflow()?.images_per_task) || 1;
-            if (per === 2 && kind === "image") return index % 2 === 0 ? "首帧" : "尾帧";
-            return `${this.MEDIA_LABEL[kind] || "素材"} ${index + 1}`;
-          })()}</span>
+          <span class="ref-index">${label}</span>
           ${ref.auto ? "" : `<button data-cv-ref-del="${ref.manualIndex}" title="移除">${icon("close")}</button>`}
         </div>`;
     }).join("");
@@ -557,7 +567,12 @@ const CanvasComposer = {
       this.renderRefs();
       this.renderLabels();
       this.renderStatus();
-    }, { allowMedia: state.kind === "prompt" });
+      const counts = { image: 0, video: 0, audio: 0 };
+      picked.forEach((item) => { counts[item.kind || "image"] = (counts[item.kind || "image"] || 0) + 1; });
+      const detail = [counts.image ? `${counts.image} 图` : "", counts.video ? `${counts.video} 视频` : "",
+        counts.audio ? `${counts.audio} 音频` : ""].filter(Boolean).join(" / ");
+      if (detail) toast(`已添加 ${detail}`);
+    }, { allowMedia: state.kind === "prompt" || this.multiModal() });
   },
 
   async submit() {

@@ -25,6 +25,12 @@ const Composer = {
     return State.workflows.find((item) => item.id === State.workflow) || {};
   },
 
+  /* 当前工作流是不是吃多模态参考（图 + 视频 + 音频一起进同一个任务） */
+  multiModal(wf = this.currentWorkflow()) {
+    const limits = wf?.limits || {};
+    return limits.videos != null || limits.audios != null;
+  },
+
   /* 供右键菜单等外部调用：写入提示词 / 切换工作流 */
   setPrompt(text) {
     const input = $("#promptInput");
@@ -766,16 +772,21 @@ const Composer = {
     });
     State.references = merged;
     this.renderReferences();
-    const kinds = new Set(picked.map((item) => item.kind || "image"));
-    toast(kinds.size === 1 && kinds.has("image")
-      ? `已添加 ${picked.length} 张参考图`
-      : `已添加 ${picked.length} 个素材`);
+    const counts = { image: 0, video: 0, audio: 0 };
+    picked.forEach((item) => { counts[item.kind || "image"] = (counts[item.kind || "image"] || 0) + 1; });
+    const detail = [
+      counts.image ? `${counts.image} 图` : "",
+      counts.video ? `${counts.video} 视频` : "",
+      counts.audio ? `${counts.audio} 音频` : "",
+    ].filter(Boolean).join(" / ");
+    toast(detail ? `已添加 ${detail}` : `已添加 ${picked.length} 个素材`);
   },
 
-  /* 打开资源选择弹窗，选中的素材追加到参考图列表；提示词模式允许图片/视频/音频 */
+  /* 打开资源选择弹窗，选中的素材追加到参考素材列表；
+     提示词模式、以及多参考视频工作流（图 + 视频 + 音频）都允许选视频与音频 */
   openPicker() {
     Picker.open((picked) => this.addReferences(picked), {
-      allowMedia: State.mediaType === "prompt",
+      allowMedia: State.mediaType === "prompt" || this.multiModal(),
     });
   },
 
@@ -804,7 +815,16 @@ const Composer = {
     const per = Number(this.currentWorkflow().images_per_task) || 1;
     // 多参考工作流（图 + 视频 + 音频混排）按类型各自编号，不然会出现「视频 3」这种怪编号
     const counters = { image: 0, video: 0, audio: 0 };
-    chips.innerHTML = refs.map((ref, index) => {
+    // 多参考工作流再加一句分类统计，图片 / 视频 / 音频串在一起也一眼分得清
+    const summary = this.multiModal() ? (() => {
+      const counts = { image: 0, video: 0, audio: 0 };
+      refs.forEach((ref) => { const kind = ref.kind || "image"; counts[kind] += 1; });
+      const parts = ["image", "video", "audio"]
+        .filter((kind) => counts[kind])
+        .map((kind) => `<b class="k-${kind}">${counts[kind]}</b>${labels[kind]}`);
+      return parts.length ? `<span class="ref-summary" title="本次任务的参考素材分类统计">${parts.join(" · ")}</span>` : "";
+    })() : "";
+    chips.innerHTML = summary + refs.map((ref, index) => {
       const kind = ref.kind || "image";
       const url = this.refUrl(ref);
       const preview = kind === "image"
@@ -818,8 +838,9 @@ const Composer = {
         ? (index % 2 === 0 ? "首帧" : "尾帧")
         : `${labels[kind] || "素材"} ${ordinal}`;
       return `
-      <div class="ref-chip" data-preview-ref="${index}" title="点击查看素材 · ${escapeHtml(ref.origin || ref.name)}">
+      <div class="ref-chip" data-kind="${kind}" data-preview-ref="${index}" title="${labels[kind] || "素材"} · ${escapeHtml(ref.origin || ref.name)}">
         ${preview}
+        <span class="ref-kind"><svg><use href="${icons[kind] || "#i-image"}"/></svg></span>
         <span class="ref-index">${label}</span>
         <button data-remove="${index}" title="移除"><svg><use href="#i-close"/></svg></button>
       </div>`;
