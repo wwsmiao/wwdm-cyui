@@ -16,13 +16,13 @@ const Manifest = {
     this.render();
   },
 
-  row({ name, meta = "", repo = "", repoLabel = "仓库", install = "", status = "", emptyText = "" }) {
+  row({ name, meta = "", repo = "", repoLabel = "仓库", install = "", status = "" }) {
     const statusHtml = status
       ? `<em class="mf-status ${status === "实例缺" || status === "当前实例缺" ? "miss" : ""}">${escapeHtml(status)}</em>`
       : "";
     const link = repo
       ? `<a class="about-link" href="${escapeHtml(repo)}" target="_blank" rel="noopener noreferrer">${escapeHtml(repoLabel)} →</a>`
-      : (emptyText ? `<span class="mf-muted">${escapeHtml(emptyText)}</span>` : "");
+      : "";
     const copy = install
       ? `<button type="button" class="soft-btn mf-copy" data-mf-copy="${escapeHtml(install)}" title="复制到 custom_nodes 里执行">复制命令</button>`
       : "";
@@ -79,7 +79,6 @@ const Manifest = {
           item.note || ""].filter(Boolean).join(" · "),
         repo: item.repo,
         repoLabel: "模型地址",
-        emptyText: "自备文件（无公开地址）",
         status: item.present === true ? "实例已有" : item.present === false ? "实例缺" : "",
       }))));
     }

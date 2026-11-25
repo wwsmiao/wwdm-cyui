@@ -1,8 +1,8 @@
 """项目清单：本项目需要哪些 ComfyUI 节点与模型，各自从哪来。
 
 清单是**从工作流图里扫出来的**（新增工作流会自动多出条目），再套一份人工维护的
-来源表（仓库 / 模型地址 / 放到哪个目录 / 说明）。没收录的文件不会瞎编地址，
-统一标成「自备」，避免给出打不开的链接。
+来源表（仓库 / 模型地址 / 放到哪个目录 / 说明）。没有公开地址的文件（自研 / 风格
+LoRA 这类自备文件）不上清单，避免列出一堆点不开的条目。
 
 所有链接都在 2026-11-25 逐个核对过：GitHub 仓库用 API 查过、模型仓库用魔搭
 接口查过文件名，能对上当前工作流里写的文件名。
@@ -124,10 +124,6 @@ CATALOG = [
     {"prefixes": ("seedvr2_ema_3b", "seedvr2_ema_7b", "ema_vae_fp16"),
      "folder": "SEEDVR2", "repo": MS + "numz/SeedVR2_comfyUI",
      "note": "放大模型 + 配套 VAE；3B 省显存，7B 更清晰"},
-    # 自备 LoRA（不公开）
-    {"prefixes": ("Kook_Zimage", "krea2_", "qwt-", "qw2.1-", "zt-", "zt_"),
-     "folder": "loras", "repo": "", "optional": True,
-     "note": "风格 / 人物 LoRA，属自备文件；当前实例没有时会自动跳过，工作流照样能跑"},
 ]
 
 
@@ -246,6 +242,9 @@ def build(workflows, instance=None) -> dict:
     rows = []
     for (folder, name), meta in models.items():
         catalog = _entry_for(name)
+        # 没有公开地址的文件（基本都是自备 LoRA）不上清单，免得列一堆点不开的条目
+        if not catalog.get("repo"):
+            continue
         rows.append({
             "name": name,
             "folder": folder,
