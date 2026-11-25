@@ -1,0 +1,234 @@
+{
+  "2": {
+    "inputs": {
+      "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器"
+    }
+  },
+  "3": {
+    "inputs": {
+      "lora_name": "Qwen-Image-2.1-viggle-turbo-v0.2.1-6step-lora-r128.safetensors",
+      "strength": 1,
+      "model": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "ViggleTurboLora",
+    "_meta": {
+      "title": "Qwen-Im.1 Viggle Turbo LoRA (unmerged)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP"
+    }
+  },
+  "5": {
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE"
+    }
+  },
+  "6": {
+    "inputs": {
+      "value": "xiaqian,一位年轻东方女性的中近景肖像，头肩部可见。正面直视镜头，神情沉静，嘴角带一丝浅淡微笑。中长乌黑直发自然垂落，穿一件简约米白色针织衫。光影柔和均匀，背景为干净的暖灰色系室内墙面，画面采用柔和自然光，电影级质感，浅景深虚化背景。构图居中，面部完全可见、光照良好。\n\n"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "正面提示词"
+    }
+  },
+  "8": {
+    "inputs": {
+      "width": 1040,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "图片尺寸"
+    }
+  },
+  "18": {
+    "inputs": {
+      "prompt": [
+        "6",
+        0
+      ],
+      "negative_prompt": "",
+      "resolution": 1024,
+      "clip": [
+        "4",
+        0
+      ],
+      "vae": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImage21",
+    "_meta": {
+      "title": "文本编码 Qwen Image 2.1"
+    }
+  },
+  "19": {
+    "inputs": {
+      "model": [
+        "28",
+        0
+      ],
+      "conditioning": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "BasicGuider (CFG off)"
+    }
+  },
+  "20": {
+    "inputs": {
+      "noise_seed": 221402673695811
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "随机噪波"
+    }
+  },
+  "21": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "K采样器选择"
+    }
+  },
+  "22": {
+    "inputs": {
+      "nodes": "1.0, 0.9375, 0.875, 0.75, 0.5, 0.25",
+      "latent": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "ViggleTurboSigmas",
+    "_meta": {
+      "title": "Qwen-Image-2.1 Viggle Turbo Sigmas"
+    }
+  },
+  "23": {
+    "inputs": {
+      "noise": [
+        "20",
+        0
+      ],
+      "guider": [
+        "19",
+        0
+      ],
+      "sampler": [
+        "21",
+        0
+      ],
+      "sigmas": [
+        "22",
+        0
+      ],
+      "latent_image": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "自定义采样器（高级）"
+    }
+  },
+  "24": {
+    "inputs": {
+      "samples": [
+        "23",
+        0
+      ],
+      "vae": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "25": {
+    "inputs": {
+      "filename_prefix": "viggle_turbo/t2i",
+      "images": [
+        "24",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "26": {
+    "inputs": {
+      "lora_name": "qw2.1-xiaqian\\qw21-xiaqian-v1_c1-st1000.safetensors",
+      "strength_model": 1,
+      "model": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "27": {
+    "inputs": {
+      "lora_name": "qw2.1-xiaqian\\qw21-xiaqian-v1_c1-st1000.safetensors",
+      "strength_model": 1,
+      "model": [
+        "26",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "28": {
+    "inputs": {
+      "lora_name": "qw2.1-xiaqian\\qw21-xiaqian-v1_c1-st1000.safetensors",
+      "strength_model": 1,
+      "model": [
+        "27",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  }
+}

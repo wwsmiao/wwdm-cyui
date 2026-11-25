@@ -1,0 +1,116 @@
+{
+  "1": {
+    "inputs": {
+      "prompt": "Describe the image, and transcribe the audio",
+      "max_length": 2048,
+      "sampling_mode": "on",
+      "sampling_mode.temperature": 0.7,
+      "sampling_mode.top_k": 64,
+      "sampling_mode.top_p": 0.95,
+      "sampling_mode.min_p": 0.05,
+      "sampling_mode.repetition_penalty": 1.05,
+      "sampling_mode.seed": 0,
+      "sampling_mode.presence_penalty": 0,
+      "thinking": false,
+      "use_default_template": true,
+      "mtp": "auto",
+      "clip": [
+        "3",
+        0
+      ],
+      "image": [
+        "2",
+        0
+      ],
+      "video": [
+        "7",
+        0
+      ],
+      "audio": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "TextGenerate",
+    "_meta": {
+      "title": "TextGenerate",
+      "cnr_id": "comfy-core",
+      "ver": "0.21.0"
+    }
+  },
+  "2": {
+    "inputs": {
+      "image": "the_lily_veil.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.21.0"
+    }
+  },
+  "3": {
+    "inputs": {
+      "clip_name": "gemma4_e4b_it_fp8_scaled.safetensors",
+      "type": "stable_diffusion",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP",
+      "cnr_id": "comfy-core",
+      "ver": "0.21.0"
+    }
+  },
+  "4": {
+    "inputs": {
+      "source": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "PreviewAny",
+    "_meta": {
+      "title": "预览任意",
+      "cnr_id": "comfy-core",
+      "ver": "0.21.0"
+    }
+  },
+  "5": {
+    "inputs": {
+      "audio": "long_demo.mp3"
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "加载音频",
+      "cnr_id": "comfy-core",
+      "ver": "0.21.0"
+    }
+  },
+  "6": {
+    "inputs": {
+      "file": "video_wan_vace_inpainting_input_video.mp4",
+      "video-preview": ""
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "加载视频",
+      "cnr_id": "comfy-core",
+      "ver": "0.21.0"
+    }
+  },
+  "7": {
+    "inputs": {
+      "video": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "获取视频元素",
+      "cnr_id": "comfy-core",
+      "ver": "0.21.0"
+    }
+  }
+}

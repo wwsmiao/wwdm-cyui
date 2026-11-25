@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>创作台 · ComfyUI 代理</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/topbar.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/stage.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/notes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/context-menu.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/composer.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/infinite-canvas.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/gallery.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/picker.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/library.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/drawer.css') }}">
+<script>
+  /* 首屏就按上次的视图渲染：刷新时不会先闪一下卡片模式再跳回去 */
+  (function () {
+    try {
+      var saved = localStorage.getItem("wwdm-view-mode");
+      document.documentElement.dataset.view = ["text", "card", "canvas"].indexOf(saved) >= 0 ? saved : "card";
+    } catch (e) {
+      document.documentElement.dataset.view = "card";
+    }
+  })();
+</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dialog.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workbench.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mask.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/agent.css') }}">
+</head>
+<body>
+
+<!-- 图标精灵：全站共用，避免 emoji -->
+<svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M12 2l2.2 6.1L20 10l-5.8 2L12 18l-2.2-6L4 10l5.8-1.9L12 2z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M4 7h16M4 12h12M4 17h8"/></symbol>
+  <symbol id="i-tidy" viewBox="0 0 24 24"><rect x="3" y="4" width="6" height="6" rx="1.4"/><path d="M12 7h9M12 4.5h6"/><rect x="3" y="14" width="6" height="6" rx="1.4"/><path d="M12 17h9M12 14.5h6"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-canvas" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5L5 20"/></symbol>
+  <symbol id="i-image-plus" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="13" height="13" rx="2.4"/><circle cx="6.6" cy="7.6" r="1.3"/><path d="M2.6 13.4l3.8-3.8 3.6 3.6"/><path d="M18.5 14v7M15 17.5h7"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M17 10l4-3v10l-4-3z"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M10 20H4v-6M4 20l9-9"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-file-plus" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v5h5M12 12v6M9 15h6"/></symbol>
+  <symbol id="i-ref" viewBox="0 0 24 24"><rect x="3" y="4" width="12" height="12" rx="2"/><path d="M8 20h11a2 2 0 002-2V9"/></symbol>
+  <symbol id="i-ratio" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16z"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6v.2h-4v-.2a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3v-4h.2a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 001.9.3 1.7 1.7 0 001-1.6V3h4v.2a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.6 1h.2v4h-.2a1.7 1.7 0 00-1.6 1z"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 11h18"/></symbol>
+  <symbol id="i-menu-close" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L20 8l-4-4L4 16v4zM14 6l4 4"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 5h14M5 10h14M5 15h9"/></symbol>
+  <symbol id="i-crop" viewBox="0 0 24 24"><path d="M6 3v13a2 2 0 002 2h13"/><path d="M3 6h13a2 2 0 012 2v13"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M20 12a8 8 0 11-3-6.2"/><path d="M20 4v5h-5"/></symbol>
+  <symbol id="i-mask" viewBox="0 0 24 24"><path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z"/><path d="M9.5 12l2 2 3.5-4"/></symbol>
+  <symbol id="i-list-ul" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.6" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.6" cy="18" r="1.3" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-list-ol" viewBox="0 0 24 24"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 4.6h1.4v4.2M3.7 8.8h2.6" stroke-width="1.5"/><path d="M3.9 13.2c0-.7.6-1.2 1.2-1.2s1.1.5 1.1 1.1c0 .8-2.3 1.5-2.3 2.7h2.4" stroke-width="1.5"/></symbol>
+  <symbol id="i-quote" viewBox="0 0 24 24"><path d="M7.5 6.5h4.2v4.6c0 3-1.8 5.2-4.6 5.9"/><path d="M15 6.5h4.2v4.6c0 3-1.8 5.2-4.6 5.9"/></symbol>
+  <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M7 15.5l6.5-6.5 4.5 4.5-4 4H9.5z"/><path d="M4 20h16"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M4 9h9.5a5.5 5.5 0 010 11H9"/><path d="M4 9l4-4M4 9l4 4"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M20 9h-9.5a5.5 5.5 0 000 11H15"/><path d="M20 9l-4-4M20 9l-4 4"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3z"/><path d="M12 9v6M12 18h.01"/></symbol>
+</svg>
+
+<div class="app" id="app">
+
+  <!-- ============ 顶栏 ============ -->
+  <header class="topbar">
+    <div class="top-left">
+      <div class="dropdown-wrap">
+        <button class="logo-btn" id="projectMenuBtn" title="项目菜单">
+          <svg><use href="#i-logo"/></svg>
+        </button>
+        <div class="dropdown" id="projectMenu" hidden>
+          <button data-action="new"><svg><use href="#i-file-plus"/></svg><span>新建项目</span></button>
+          <button data-action="duplicate"><svg><use href="#i-copy"/></svg><span>复制项目</span></button>
+          <div class="divider"></div>
+          <button data-action="delete" class="danger"><svg><use href="#i-trash"/></svg><span>删除当前项目</span></button>
+        </div>
+      </div>
+      <span class="project-title" id="projectTitle" title="双击重命名">Untitled</span>
+      <button class="icon-btn ghost" id="projectToggle" title="项目管理">
+        <svg><use href="#i-folder"/></svg>
+      </button>
+    </div>
+
+    <div class="top-center">
+      <button class="soft-btn" id="filterBtn">全部 <svg class="tiny"><use href="#i-chevron"/></svg></button>
+      <div class="zoom-group">
+        <button id="zoomOut" title="缩小"><svg><use href="#i-minus"/></svg></button>
+        <span id="zoomLabel">100%</span>
+        <button id="zoomIn" title="放大"><svg><use href="#i-plus"/></svg></button>
+      </div>
+      <button class="icon-btn ghost" id="searchBtn" title="搜索作品"><svg><use href="#i-search"/></svg></button>
+      <button class="soft-btn" id="tidyBtn" title="整理卡片 / 画布节点"><svg class="tiny"><use href="#i-tidy"/></svg>整理</button>
+    </div>
+
+    <div class="top-right">
+      <div class="segmented view-switch" id="viewSwitch">
+        <button data-mode="text"><svg class="tiny"><use href="#i-edit"/></svg>文本</button>
+        <button class="active" data-mode="card"><svg class="tiny"><use href="#i-grid"/></svg>卡片</button>
+        <button data-mode="canvas"><svg class="tiny"><use href="#i-canvas"/></svg>画布</button>
+      </div>
+      <div class="stat-pill" id="statPill" title="查看生成进度与系统资源">
+        <span class="dot" id="comfyDot"></span>
+        <button class="stat-switch" id="statSwitch" title="点击切换显示：生成进度 / 系统资源">
+          <span class="stat-bar"><i id="statBar"></i></span>
+          <span class="stat-label" id="statText">生成 --</span>
+        </button>
+        <button class="stat-open" id="statOpen" title="打开进度面板"><svg class="tiny"><use href="#i-chevron-up"/></svg></button>
+      </div>
+      <button class="icon-btn ghost" id="galleryBtn" title="图库"><svg><use href="#i-image"/></svg></button>
+      <button class="icon-btn ghost" id="settingsBtn" title="设置"><svg><use href="#i-settings"/></svg></button>
+    </div>
+  </header>
+
+  <!-- ============ 项目管理抽屉 ============ -->
+  <aside class="project-drawer" id="projectDrawer" aria-hidden="true">
+    <header class="drawer-head">
+      <span><svg class="tiny"><use href="#i-folder"/></svg> 项目管理</span>
+      <button class="icon-btn ghost" id="drawerCollapse" title="收起"><svg><use href="#i-menu-close"/></svg></button>
+    </header>
+    <div class="drawer-body" id="projectList"></div>
+    <footer class="drawer-foot">
+      <button class="soft-btn" id="projectBatchDelete"><svg class="tiny"><use href="#i-trash"/></svg> 批量删除</button>
+      <button class="primary-btn" id="projectCreate"><svg class="tiny"><use href="#i-plus"/></svg> 新建项目</button>
+    </footer>
+  </aside>
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+
+  <!-- ============ 作品区 ============ -->
+  <main class="stage" id="stage">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-art">
+        <svg viewBox="0 0 220 180" width="220" height="180">
+          <defs>
+            <radialGradient id="glow"><stop offset="0" stop-color="#d9ff5c" stop-opacity=".95"/><stop offset="1" stop-color="#a8e02a" stop-opacity="0"/></radialGradient>
+            <linearGradient id="card" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#2c302a"/><stop offset="1" stop-color="#1c1f1c"/></linearGradient>
+          </defs>
+          <ellipse cx="110" cy="92" rx="86" ry="66" fill="url(#glow)" opacity=".12"/>
+          <g transform="rotate(8 130 90)" opacity=".55">
+            <rect x="92" y="42" width="86" height="100" rx="10" fill="url(#card)" stroke="#4a503f" stroke-width="1.5"/>
+            <rect x="104" y="56" width="62" height="44" rx="4" fill="#31362d"/>
+          </g>
+          <g transform="rotate(-3 108 90)">
+            <rect x="64" y="38" width="92" height="108" rx="11" fill="url(#card)" stroke="#545c46" stroke-width="1.5"/>
+            <rect x="76" y="51" width="68" height="48" rx="5" fill="#32382d"/>
+            <path d="M80 92l20-20 14 14 10-9 16 15" stroke="#78855c" stroke-width="2" fill="none"/>
+            <circle cx="92" cy="65" r="4" fill="#7d8a61"/>
+            <rect x="76" y="110" width="52" height="5" rx="2.5" fill="#474e3d"/>
+            <rect x="76" y="122" width="36" height="5" rx="2.5" fill="#3c4235"/>
+            <rect x="138" y="108" width="14" height="14" rx="3" fill="#d9f43a" opacity=".9"/>
+            <path d="M143 115h4M145 113v4" stroke="#1a1c17" stroke-width="1.6" stroke-linecap="round"/>
+          </g>
+          <g transform="translate(38 26)">
+            <rect x="0" y="0" width="34" height="28" rx="8" fill="#d9f43a"/>
+            <path d="M9 9h16M9 16h11" stroke="#1a1c17" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M8 28l-3 7 11-7z" fill="#d9f43a"/>
+          </g>
+          <circle cx="180" cy="52" r="16" fill="#b6f53a" opacity=".18"/>
+          <circle cx="180" cy="52" r="9" fill="#c9ff56" opacity=".75"/>
+          <circle cx="177" cy="51" r="1.3" fill="#1d2415"/><circle cx="183" cy="51" r="1.3" fill="#1d2415"/>
+        </svg>
+      </div>
+      <h2>作品会出现在这里</h2>
+      <p>在下方创作框输入描述词或生成图片，生成的作品会出现在这里。</p>
+    </div>
+
+    <div class="works-grid" id="worksGrid"></div>
+
+    <!-- 无限画布：点阵底 + 可平移缩放的世界层 + 素材节点连线 -->
+    <div class="canvas-view" id="canvasView" hidden>
+      <div class="canvas-toolbar" id="canvasToolbar">
+        <button id="canvasTbToggle" class="tb-toggle" title="收起工具栏"><svg><use href="#i-chevron"/></svg></button>
+        <button id="canvasAddAsset" title="从资源选择添加图片 / 视频 / 音频素材"><svg><use href="#i-image-plus"/></svg>添加素材</button>
+        <button id="canvasUndo" title="撤销 (Ctrl+Z)" disabled><svg><use href="#i-undo"/></svg>撤销</button>
+        <button id="canvasRedo" title="重做 (Ctrl+Y)" disabled><svg><use href="#i-redo"/></svg>重做</button>
+        <button id="canvasTidy" title="自动分层排列节点"><svg><use href="#i-tidy"/></svg>整理</button>
+        <button id="canvasFit" title="缩放并居中显示所有节点"><svg><use href="#i-expand"/></svg>适应视图</button>
+        <button id="canvasClear" title="清空画布上所有节点与素材"><svg><use href="#i-eraser"/></svg>清空</button>
+        <button id="canvasMinimap" title="显示 / 隐藏小地图"><svg><use href="#i-canvas"/></svg>小地图</button>
+        <span class="sep"></span>
+        <span class="canvas-tip">拖空白平移 · Ctrl 拖空白框选 · 滚轮缩放 · 右键空白添加 / 打组 · 文件可直接拖入</span>
+      </div>
+      <input type="file" id="canvasImportInput" accept="application/json,.json" hidden>
+      <div class="canvas-world" id="canvasInner">
+        <svg class="canvas-edges" id="canvasEdges"></svg>
+        <div class="canvas-groups" id="canvasGroups"></div>
+        <div class="canvas-nodes" id="canvasNodes"></div>
+      </div>
+      <div class="cv-marquee" id="canvasMarquee" hidden></div>
+      <div class="cv-minimap" id="cvMinimap" title="小地图：点击/拖动可跳转位置">
+        <canvas id="cvMinimapCanvas" width="360" height="240"></canvas>
+        <button class="cv-minimap-close" id="cvMinimapClose" title="收起小地图"><svg><use href="#i-close"/></svg></button>
+      </div>
+
+      <!-- 画布内创作区：选中素材节点或生成节点后从底部浮出 -->
+      <div class="cv-composer" id="cvComposer" hidden>
+        <div class="cv-composer-head">
+          <div class="cv-refs" id="cvRefs"></div>
+          <button class="cv-ref-add" id="cvAddRef" title="添加参考素材"><svg><use href="#i-plus"/></svg></button>
+          <span class="flex-spacer"></span>
+          <span class="cv-status" id="cvStatus"></span>
+          <button class="cv-smart" id="cvSmartRef" title="自动引用上游连线素材">
+            <svg class="tiny"><use href="#i-ref"/></svg>智能引用
+          </button>
+          <button class="cv-expand" id="cvExpand" title="展开输入框"><svg><use href="#i-expand"/></svg></button>
+        </div>
+        <div class="cv-upstream" id="cvUpstreamPrompt" hidden></div>
+        <textarea class="cv-prompt" id="cvPrompt" rows="1" placeholder="描述你想要生成的内容"></textarea>
+        <div class="cv-composer-bar">
+          <button class="chip" id="cvKindChip" title="切换生成类型">
+            <svg class="tiny"><use href="#i-image"/></svg><span id="cvKindLabel">图片</span><svg class="tiny"><use href="#i-chevron"/></svg>
+          </button>
+          <button class="chip" id="cvWorkflowChip" title="选择工作流">
+            <svg class="tiny"><use href="#i-image"/></svg><span id="cvWorkflowLabel">工作流</span><svg class="tiny"><use href="#i-chevron"/></svg>
+          </button>
+          <button class="chip" id="cvParamsChip" title="生成参数">
+            <svg class="tiny"><use href="#i-ratio"/></svg><span id="cvParamsLabel">1:1 · 1K · 1张</span><svg class="tiny"><use href="#i-chevron"/></svg>
+          </button>
+          <span class="flex-spacer"></span>
+          <button class="cv-send" id="cvSend" title="生成"><svg><use href="#i-send"/></svg></button>
+        </div>
+      </div>
+
+      <!-- 画布内弹层：类型 / 工作流 / 参数 -->
+      <div class="popover cv-pop" id="cvKindPop" hidden>
+        <div class="pop-head"><span>生成类型</span><button class="icon-btn ghost" data-cv-close><svg><use href="#i-close"/></svg></button></div>
+        <div class="kind-list" id="cvKindList">
+          <button class="kind-item" data-kind="image"><svg class="tiny"><use href="#i-image"/></svg>图片<span class="kind-desc">文生图 / 图生图</span></button>
+          <button class="kind-item" data-kind="video"><svg class="tiny"><use href="#i-video"/></svg>视频<span class="kind-desc">文生视频 / 图生视频</span></button>
+          <button class="kind-item" data-kind="prompt"><svg class="tiny"><use href="#i-text"/></svg>提示词<span class="kind-desc">反推 / 改写 / 优化</span></button>
+        </div>
+      </div>
+      <div class="popover cv-pop" id="cvWorkflowPop" hidden>
+        <div class="pop-head"><span>选择工作流</span><button class="icon-btn ghost" data-cv-close><svg><use href="#i-close"/></svg></button></div>
+        <div class="workflow-list" id="cvWorkflowList"></div>
+      </div>
+      <div class="popover cv-pop" id="cvParamsPop" hidden>
+        <div class="pop-head"><span>生成参数</span><button class="icon-btn ghost" data-cv-close><svg><use href="#i-close"/></svg></button></div>
+        <div class="pop-body" id="cvParamsBody"></div>
+      </div>
+
+      <div class="canvas-bottom-tip" id="canvasBottomTip">拖空白平移 · 滚轮缩放 · 右键空白添加节点 · 从节点右侧圆点拉线可新建图片 / 视频 / 提示词</div>
+    </div>
+
+    <!-- 文本模式：按项目保存的笔记/草稿 -->
+    <section class="notes-view" id="notesView" hidden>
+      <div class="notes-head">
+        <div class="notes-title">
+          <svg class="tiny"><use href="#i-edit"/></svg>
+          <span>项目笔记</span>
+          <em id="notesProject"></em>
+        </div>
+        <div class="notes-actions">
+          <span class="notes-status" id="notesStatus">已保存</span>
+          <button class="soft-btn" id="notesCopy"><svg class="tiny"><use href="#i-copy"/></svg>复制全文</button>
+          <button class="soft-btn btn-clear" id="notesClear"><svg class="tiny"><use href="#i-eraser"/></svg>清空</button>
+          <button class="primary-btn" id="notesSave"><svg class="tiny"><use href="#i-check"/></svg>保存</button>
+        </div>
+      </div>
+      <div class="notes-toolbar" id="notesToolbar">
+        <select class="notes-block" id="notesBlock" title="段落样式">
+          <option value="p">正文</option>
+          <option value="h1">大标题</option>
+          <option value="h2">小标题</option>
+          <option value="h3">段落标题</option>
+        </select>
+        <span class="notes-sep"></span>
+        <button data-cmd="bold" title="加粗 (Ctrl+B)"><b>B</b></button>
+        <button data-cmd="italic" title="斜体 (Ctrl+I)"><i>I</i></button>
+        <button data-cmd="underline" title="下划线 (Ctrl+U)"><u>U</u></button>
+        <button data-cmd="strikeThrough" title="删除线"><s>S</s></button>
+        <span class="notes-sep"></span>
+        <button data-cmd="insertUnorderedList" title="无序列表"><svg><use href="#i-list-ul"/></svg></button>
+        <button data-cmd="insertOrderedList" title="有序列表"><svg><use href="#i-list-ol"/></svg></button>
+        <button data-cmd="formatBlock" data-value="blockquote" title="引用"><svg><use href="#i-quote"/></svg></button>
+        <span class="notes-sep"></span>
+        <button data-cmd="removeFormat" title="清除格式"><svg><use href="#i-eraser"/></svg></button>
+        <button data-cmd="undo" title="撤销 (Ctrl+Z)"><svg><use href="#i-undo"/></svg></button>
+        <button data-cmd="redo" title="重做 (Ctrl+Shift+Z)"><svg><use href="#i-redo"/></svg></button>
+      </div>
+      <div id="notesEditor" class="notes-editor" contenteditable="true" spellcheck="false"
+        data-placeholder="写点笔记、提示词草稿或创作思路…&#10;支持加粗、标题、列表，Ctrl/⌘ + S 保存"></div>
+      <div class="notes-foot">
+        <span id="notesCount">0 字</span>
+        <span class="notes-tip">内容按项目保存在 data/projects.json</span>
+      </div>
+    </section>
+
+    <aside class="monitor-panel" id="monitorPanel" hidden>
+      <div class="mon-head">
+        <div class="mon-tabs" id="monTabs">
+          <button class="active" data-view="progress">生成进度</button>
+          <button data-view="system">系统资源</button>
+        </div>
+        <div class="mon-head-end">
+          <button class="mon-clear" id="clearTasks" title="清空已结束的进度">清空</button>
+          <button class="icon-btn ghost" id="monitorClose"><svg><use href="#i-close"/></svg></button>
+        </div>
+      </div>
+      <div class="mon-view" id="progressView">
+        <div class="mon-section">
+          <div class="mon-title">当前生成 <span id="currentMeta">空闲</span></div>
+          <div id="currentProgress"></div>
+        </div>
+        <div class="mon-section">
+          <div class="mon-title">最近生成 <span id="taskCounter">0 条</span></div>
+          <div class="task-progress-list" id="taskProgressList"></div>
+        </div>
+      </div>
+      <div class="mon-view" id="systemView" hidden>
+        <div class="mon-section">
+          <div class="mon-title">系统资源</div>
+          <div class="metric"><div class="metric-top"><span>CPU</span><b id="cpuText">--%</b></div><div class="bar"><i id="cpuBar"></i></div></div>
+          <div class="metric"><div class="metric-top"><span>GPU</span><b id="gpuText">--%</b></div><div class="bar"><i id="gpuBar"></i></div></div>
+          <div class="metric"><div class="metric-top"><span>显存</span><b id="vramText">-- / --</b></div><div class="bar"><i id="vramBar"></i></div></div>
+          <div class="metric"><div class="metric-top"><span>内存</span><b id="memText">-- / -- GB</b></div><div class="bar"><i id="memBar"></i></div></div>
+          <div class="comfy-line" id="comfyLine">ComfyUI 检测中…</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ============ 创作区 ============ -->
+  <section class="composer-region" id="composerRegion">
+    <button class="collapse-hint" id="collapseHint"><svg class="tiny"><use href="#i-chevron-up"/></svg><span>收起创作区</span></button>
+
+    <div class="composer" id="composer">
+      <div class="composer-head">
+        <div class="prompt-box">
+          <!-- 参考图：图标点击弹出「本地上传 / 从资源选择」，已选素材直接排在同一行 -->
+          <div class="ref-strip" id="refStrip">
+            <button class="ref-tile" id="refBtn" title="添加参考图">
+              <svg><use href="#i-image-plus"/></svg>
+              <span>参考图</span>
+            </button>
+            <div class="ref-chips" id="refChips"></div>
+          </div>
+          <div class="attach-menu" id="attachMenu" hidden>
+            <button data-attach="local"><svg class="tiny"><use href="#i-file-plus"/></svg>本地上传</button>
+            <button data-attach="picker"><svg class="tiny"><use href="#i-folder"/></svg>从资源选择</button>
+          </div>
+          <textarea id="promptInput" rows="2" placeholder="描述要生成的图片..."></textarea>
+        </div>
+        <button class="icon-btn ghost" id="clearComposer" title="清空提示词和素材"><svg><use href="#i-eraser"/></svg></button>
+        <button class="icon-btn ghost" id="expandBtn" title="展开输入框"><svg><use href="#i-expand"/></svg></button>
+      </div>
+      <p class="composer-hint" id="composerHint" hidden></p>
+      <input type="file" id="refFileInput" accept="image/*,video/*,audio/*" multiple hidden>
+      <div class="composer-bar">
+        <div class="media-select" id="mediaSelect">
+          <button class="chip media-trigger" id="mediaSelectBtn">
+            <svg class="tiny"><use href="#i-image"/></svg><span id="mediaLabel">图片</span><svg class="tiny"><use href="#i-chevron"/></svg>
+          </button>
+          <div class="media-menu" id="mediaMenu" hidden>
+            <button class="active" data-type="image"><svg class="tiny"><use href="#i-image"/></svg>图片</button>
+            <button data-type="video"><svg class="tiny"><use href="#i-video"/></svg>视频</button>
+            <button data-type="prompt"><svg class="tiny"><use href="#i-text"/></svg>提示词</button>
+          </div>
+        </div>
+        <button class="chip" id="workflowChip" title="选择生成工作流">
+          <svg class="tiny"><use href="#i-image"/></svg><span id="workflowLabel">Z-Image-Turbo</span><svg class="tiny"><use href="#i-chevron"/></svg>
+        </button>
+        <button class="chip" id="functionChip" title="提示词功能" hidden>
+          <svg class="tiny"><use href="#i-sparkle"/></svg><span id="functionLabel">提示词润色</span><svg class="tiny"><use href="#i-chevron"/></svg>
+        </button>
+        <button class="chip" id="paramsChip" title="图片生成参数">
+          <svg class="tiny"><use href="#i-ratio"/></svg><span id="paramsLabel">1:1 · 1K · 1张</span><svg class="tiny"><use href="#i-chevron"/></svg>
+        </button>
+        <span class="flex-spacer"></span>
+        <button class="send-btn" id="sendBtn" title="开始生成"><svg><use href="#i-send"/></svg></button>
+      </div>
+    </div>
+
+    <!-- 参数弹层 -->
+    <div class="popover params-pop" id="paramsPop" hidden>
+      <div class="pop-head"><span>生成参数</span><button class="icon-btn ghost" data-close-pop><svg><use href="#i-close"/></svg></button></div>
+      <div class="pop-body">
+        <p class="params-notice" id="paramsNotice" hidden></p>
+        <div id="imageParamsGroup">
+          <div class="field" id="gridField" hidden>
+            <label>网格 <small>行 × 列，按参考图顺序从左到右、从上到下</small></label>
+            <div class="grid-inputs">
+              <label>行 <select id="gridRows"></select></label>
+              <span>×</span>
+              <label>列 <select id="gridCols"></select></label>
+            </div>
+            <p class="hint" id="gridHint"></p>
+          </div>
+          <div class="field" id="scaleField" hidden>
+            <label>放大倍数 <small>1 – 10 倍</small></label>
+            <div class="range-row">
+              <input id="scaleRange" type="range" min="1" max="10" step="0.1" value="2">
+              <output id="scaleValue">2.0×</output>
+            </div>
+          </div>
+          <div class="field" id="ratioField">
+            <label>图片比例</label>
+            <div class="choice-grid" id="ratioChoices"></div>
+          </div>
+          <div class="field" id="resField">
+            <label>分辨率 <small>按最长边计算</small></label>
+            <div class="choice-row" id="resChoices"></div>
+          </div>
+          <div class="field custom-size" id="customSizeField" hidden>
+            <label>自定义宽高 <small>按 8 像素对齐</small></label>
+            <div class="custom-inputs">
+              <label>宽 <input id="customWidth" type="number" min="64" max="4096" step="8" value="1024"></label>
+              <span>×</span>
+              <label>高 <input id="customHeight" type="number" min="64" max="4096" step="8" value="1024"></label>
+            </div>
+          </div>
+          <div class="field" id="batchField">
+            <label>生成张数</label>
+            <div class="choice-row" id="batchChoices"></div>
+          </div>
+        </div>
+        <div id="videoParamsGroup" hidden>
+          <div class="field" id="videoRatioField">
+            <label>视频比例 <small>由尺寸节点计算宽高</small></label>
+            <div class="choice-row" id="videoRatioChoices"></div>
+          </div>
+          <div class="field" id="qualityField">
+            <label>视频质量 <small>百万像素 0.2 – 2.0 · 越高分辨率越高</small></label>
+            <div class="range-row">
+              <input id="qualityRange" type="range" min="0.2" max="2" step="0.1" value="1">
+              <output id="qualityValue">1.0</output>
+            </div>
+          </div>
+          <div class="field" id="durationField">
+            <label>视频时长 <small>1 – 15 秒</small></label>
+            <div class="range-row">
+              <input id="durationRange" type="range" min="1" max="15" step="1" value="3">
+              <output id="durationValue">3 秒</output>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pop-foot"><span id="sizePreview">输出 1024 × 1024</span><button class="primary-btn sm" data-close-pop>完成</button></div>
+    </div>
+
+    <!-- 工作流弹层 -->
+    <div class="popover workflow-pop" id="workflowPop" hidden>
+      <div class="pop-head"><span>选择工作流</span><button class="icon-btn ghost" data-close-pop><svg><use href="#i-close"/></svg></button></div>
+      <div class="workflow-list" id="workflowList"></div>
+    </div>
+
+    <!-- 提示词功能弹层 -->
+    <div class="popover workflow-pop" id="functionPop" hidden>
+      <div class="pop-head"><span>提示词功能</span><button class="icon-btn ghost" data-close-pop><svg><use href="#i-close"/></svg></button></div>
+      <div class="workflow-list" id="functionList"></div>
+    </div>
+  </section>
+
+  <!-- 图片预览：左侧大图 + 右侧生图信息 -->
+  <div class="lightbox" id="lightbox" hidden>
+    <div class="lightbox-dialog">
+      <div class="lightbox-stage">
+        <button class="lightbox-nav prev" id="lightboxPrev" title="上一张"><svg><use href="#i-chevron-up"/></svg></button>
+        <img id="lightboxImg" alt="作品预览">
+        <div class="lightbox-media" id="lightboxMedia" hidden></div>
+        <button class="lightbox-nav next" id="lightboxNext" title="下一张"><svg><use href="#i-chevron-up"/></svg></button>
+        <span class="lightbox-counter" id="lightboxCounter" hidden>1 / 1</span>
+        <span class="lightbox-zoom" id="lightboxZoom" hidden>100%</span>
+      </div>
+      <aside class="lightbox-info">
+        <div class="info-head">
+          <span id="lightboxInfoTitle">生图信息</span>
+          <button class="icon-btn" id="lightboxClose"><svg><use href="#i-close"/></svg></button>
+        </div>
+        <div class="info-body" id="lightboxInfoBody"></div>
+        <div class="info-foot"><button class="soft-btn" id="lightboxDownload"><svg class="tiny"><use href="#i-download"/></svg> 下载原图</button></div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- 图库：全部可用 / 本项目的素材，网格·瀑布流预览，双击看生图信息 -->
+  <div class="modal-layer gallery-layer" id="galleryModal" hidden>
+    <div class="gallery-shell">
+      <header class="gallery-head">
+        <div class="gallery-head-left">
+          <span class="gallery-name"><svg class="tiny"><use href="#i-image"/></svg>图库</span>
+          <div class="segmented gallery-scope" id="galleryScope">
+            <button class="active" data-scope="all">全部可用</button>
+            <button data-scope="project">本项目</button>
+            <button data-scope="library">资产库</button>
+          </div>
+        </div>
+        <div class="gallery-head-right">
+          <label class="gallery-search">
+            <svg class="tiny"><use href="#i-search"/></svg>
+            <input id="gallerySearch" type="search" placeholder="搜索素材 / 提示词" autocomplete="off" spellcheck="false">
+            <button type="button" class="gallery-search-clear" id="gallerySearchClear" title="清空搜索" hidden>
+              <svg><use href="#i-close"/></svg>
+            </button>
+          </label>
+          <button class="icon-btn" id="galleryClose" title="关闭"><svg><use href="#i-close"/></svg></button>
+        </div>
+      </header>
+      <div class="gallery-bar">
+        <div class="gallery-bar-left">
+          <div class="segmented gallery-tabs" id="galleryModes">
+            <button data-mode="grid"><svg class="tiny"><use href="#i-grid"/></svg>网格</button>
+            <button class="active" data-mode="waterfall"><svg class="tiny"><use href="#i-canvas"/></svg>瀑布流</button>
+          </div>
+          <div class="segmented gallery-kinds" id="galleryKinds">
+            <button class="active" data-kind="all">全部</button>
+            <button data-kind="video">视频</button>
+            <button data-kind="image">图片</button>
+            <button data-kind="audio">音频</button>
+          </div>
+        </div>
+        <div class="gallery-bar-right">
+          <span class="gallery-hint" id="galleryStats">共 0 项</span>
+          <button class="gallery-btn" id="gallerySelectAll">全选</button>
+          <button class="gallery-btn" id="galleryClearSelection">清空已选</button>
+        </div>
+      </div>
+      <div class="lib-folders" id="galleryFolders" hidden></div>
+      <div class="gallery-body" id="galleryGrid"></div>
+      <footer class="gallery-foot">
+        <span><em id="galleryProjectName"></em><span id="gallerySelected">尚未选择素材</span></span>
+        <div>
+          <span class="gallery-hint" id="galleryShown">显示 0 项</span>
+          <button class="soft-btn btn-delete" id="galleryDelete"><svg class="tiny"><use href="#i-trash"/></svg> 删除</button>
+          <button class="primary-btn" id="galleryDownload"><svg class="tiny"><use href="#i-download"/></svg> 下载</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- 选择素材：本地上传 / 从资源选择（ComfyUI 全部素材 + 本项目素材） -->
+  <div class="modal-layer picker-layer" id="pickerModal" hidden>
+    <div class="picker-shell">
+      <header class="picker-head">
+        <div class="segmented picker-scope" id="pickerScope">
+          <button class="active" data-scope="all">全部可用</button>
+          <button data-scope="project">本项目</button>
+          <button data-scope="library">资产库</button>
+        </div>
+        <div class="picker-head-right">
+          <label class="picker-search">
+            <svg class="tiny"><use href="#i-search"/></svg>
+            <input id="pickerSearch" type="search" placeholder="搜索素材" autocomplete="off" spellcheck="false">
+            <button type="button" class="picker-search-clear" id="pickerSearchClear" title="清空搜索" hidden>
+              <svg><use href="#i-close"/></svg>
+            </button>
+          </label>
+          <button class="icon-btn" id="pickerClose" title="关闭"><svg><use href="#i-close"/></svg></button>
+        </div>
+      </header>
+      <div class="picker-bar">
+        <div class="segmented picker-views" id="pickerViews">
+          <button class="active" data-view="waterfall"><svg class="tiny"><use href="#i-canvas"/></svg>瀑布流</button>
+          <button data-view="grid"><svg class="tiny"><use href="#i-grid"/></svg>网格</button>
+        </div>
+        <div class="segmented picker-kinds" id="pickerKinds">
+          <button class="active" data-kind="all">全部</button>
+          <button data-kind="video">视频</button>
+          <button data-kind="image">图片</button>
+          <button data-kind="audio">音频</button>
+        </div>
+        <div class="picker-bar-right">
+          <span class="picker-hint" id="pickerDir"></span>
+          <button class="soft-btn sm" id="pickerSelectAll">全选</button>
+          <button class="soft-btn sm" id="pickerClear" disabled>清空已选</button>
+          <button class="soft-btn sm" id="pickerDelete" disabled>删除已选</button>
+          <button class="primary-btn sm" id="pickerUpload"><svg class="tiny"><use href="#i-file-plus"/></svg>本地上传</button>
+        </div>
+      </div>
+      <div class="lib-folders" id="pickerFolders" hidden></div>
+      <div class="picker-body" id="pickerGrid"></div>
+      <footer class="picker-foot">
+        <div class="picker-chosen" id="pickerChosen"><span class="picker-chosen-empty">尚未选择素材</span></div>
+        <div class="picker-foot-right">
+          <span id="pickerInfo"></span>
+          <button class="soft-btn" id="pickerCancel">取消</button>
+          <button class="primary-btn" id="pickerConfirm" disabled>添加已选</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- 居中设置弹窗：左侧菜单 + 右侧内容 -->
+  <div class="modal-layer settings-layer" id="settingsModal" hidden>
+    <div class="settings-shell">
+      <header class="settings-head">
+        <span><svg class="tiny"><use href="#i-settings"/></svg> 设置</span>
+        <button class="icon-btn" id="settingsClose"><svg><use href="#i-close"/></svg></button>
+      </header>
+      <div class="settings-body">
+        <nav class="settings-menu" id="settingsMenu">
+          <button class="active" data-section="comfy"><svg class="tiny"><use href="#i-cpu"/></svg> ComfyUI 连接</button>
+          <button data-section="workflow"><svg class="tiny"><use href="#i-image"/></svg> 图片参数</button>
+          <button data-section="video"><svg class="tiny"><use href="#i-video"/></svg> 视频参数</button>
+          <button data-section="prompt"><svg class="tiny"><use href="#i-sparkle"/></svg> 提示词参数</button>
+          <button data-section="templates"><svg class="tiny"><use href="#i-text"/></svg> 提示词模版</button>
+          <button data-section="agent"><svg class="tiny"><use href="#i-sparkle"/></svg> AI Agent</button>
+          <button data-section="manifest"><svg class="tiny"><use href="#i-folder"/></svg> 项目清单</button>
+          <button data-section="about"><svg class="tiny"><use href="#i-check"/></svg> 关于</button>
+        </nav>
+        <div class="settings-content">
+          <section class="settings-panel" data-panel="comfy">
+            <h3>ComfyUI 连接</h3>
+            <p class="setting-desc">界面通过后端代理访问该地址，所有生图请求都从此处转发。</p>
+            <label class="setting-field"><span>服务地址</span><input id="comfyUrlInput" type="text" placeholder="http://127.0.0.1:8188" spellcheck="false"></label>
+            <label class="setting-field"><span>ComfyUI 目录（可选，仅本机实例时用于浏览素材，连接远程实例请留空）</span><input id="comfyDirInput" type="text" placeholder="留空则自动探测，例如 C:/ComfyUI/ComfyUI" spellcheck="false"></label>
+            <label class="setting-field"><span>客户端标识</span><input id="clientIdInput" type="text" placeholder="wwdm-comfy-proxy" spellcheck="false"></label>
+            <label class="setting-field"><span>任务超时（秒）</span><input id="timeoutInput" type="number" min="60" step="60" placeholder="1800"></label>
+            <p class="setting-desc" id="comfyInstanceNote">正在检查当前实例…</p>
+          </section>
+          <section class="settings-panel" data-panel="workflow" hidden>
+            <h3>图片参数</h3>
+            <p class="setting-desc">每个生图工作流的参数独立保存。种子填 -1 表示每次随机；LoRA 最多 5 个，留空则不加载；点击工作流可展开或收起参数。</p>
+            <div class="workflow-accordion" id="workflowAccordion"></div>
+          </section>
+          <section class="settings-panel" data-panel="video" hidden>
+            <h3>视频参数</h3>
+            <p class="setting-desc">图生视频工作流的基础配置：模型、帧率、采样步数与加速开关。另外最多可选 3 个普通视频 LoRA，留空即不加载；视频比例与时长在创作框里逐次设置。</p>
+            <div class="workflow-accordion" id="videoAccordion"></div>
+          </section>
+          <section class="settings-panel" data-panel="prompt" hidden>
+            <h3>提示词参数</h3>
+            <p class="setting-desc">创作框打开「提示词优化」后，提交前会先用这里的模型润色提示词。用户提示词里写 <code>{prompt}</code> 代表创作框输入的内容。</p>
+            <div class="workflow-accordion" id="promptAccordion"></div>
+          </section>
+          <section class="settings-panel" data-panel="templates" hidden>
+            <h3>提示词模版</h3>
+            <p class="setting-desc">每个功能绑一套模版：系统提示词决定模型角色，用户提示词里的 <code>{prompt}</code> 代表输入框的内容。模版改动会自动保存，可以新建、改名、改内容、删除；删掉内置模版后点「恢复内置」可以找回。</p>
+            <div class="tpl-bindings" id="tplBindings"></div>
+            <div class="tpl-head">
+              <span>模版列表 <em id="tplCount"></em><em class="tpl-status" id="tplStatus"></em></span>
+              <div>
+                <button class="soft-btn" id="tplRestore"><svg class="tiny"><use href="#i-rotate"/></svg>恢复内置</button>
+                <button class="primary-btn" id="tplCreate"><svg class="tiny"><use href="#i-plus"/></svg>新建模版</button>
+              </div>
+            </div>
+            <div class="tpl-list" id="tplList"></div>
+          </section>
+          <section class="settings-panel" data-panel="agent" hidden>
+            <h3>AI Agent 接入</h3>
+            <p class="setting-desc">「薇薇」是这个创作台里的 AI 搭档：能陪你聊思路，也能直接操作画布。独立于生图链路，支持任何 OpenAI 兼容接口（DeepSeek / 通义 / 月之暗面 / 本地 Ollama、LM Studio 都行）。配置只保存在本机 <code>data/settings.json</code>。</p>
+            <label class="setting-field"><span>接口地址（到 /v1 为止）</span><input id="agentBaseUrl" type="text" placeholder="https://api.deepseek.com/v1" spellcheck="false"></label>
+            <label class="setting-field"><span>API Key</span>
+              <div class="agent-key-row">
+                <input id="agentApiKey" type="password" placeholder="sk-..." spellcheck="false" autocomplete="off">
+                <button class="soft-btn" id="agentKeyChange" type="button" hidden>更换</button>
+              </div>
+              <em class="agent-key-state" id="agentKeyState">未设置</em>
+            </label>
+            <label class="setting-field"><span>模型</span>
+              <div class="agent-model-row">
+                <select id="agentModelSelect"><option value="">（未拉取）</option></select>
+                <input id="agentModelInput" type="text" placeholder="或直接填模型名" spellcheck="false">
+                <button class="soft-btn" id="agentModelFetch" type="button">拉取模型</button>
+              </div>
+            </label>
+            <label class="setting-field"><span>温度（越高越发散）</span>
+              <div class="agent-temp-row">
+                <input id="agentTemperature" type="range" min="0" max="2" step="0.1" value="0.7">
+                <output>0.7</output>
+              </div>
+            </label>
+            <label class="setting-field"><span>系统提示词（可选，留空用内置的创作助手设定）</span>
+              <textarea id="agentSystem" rows="3" placeholder="例如：你是我的提示词搭档，回答尽量给可直接复制的英文提示词。"></textarea>
+            </label>
+            <label class="setting-field"><span>画布权限</span>
+              <select id="agentAllowCanvas">
+                <option value="1">允许 Agent 操作画布（建节点 / 连线 / 改参数 / 提交生成）</option>
+                <option value="0">只聊天，不动画布</option>
+              </select>
+            </label>
+            <label class="setting-field"><span>语音</span>
+              <select id="agentVoiceReply">
+                <option value="0">只听我说（不朗读回复）</option>
+                <option value="1">回复也读出来（语音对话）</option>
+              </select>
+            </label>
+            <label class="setting-field"><span>悬浮球</span>
+              <select id="agentEnabled"><option value="1">显示在页面上</option><option value="0">隐藏</option></select>
+            </label>
+            <div class="agent-setting-actions">
+              <button class="soft-btn" id="agentTest" type="button">测试连接</button>
+              <button class="primary-btn" id="agentSaveCfg" type="button">保存 Agent 配置</button>
+            </div>
+            <p class="agent-hint">提示：拉取模型会先把上面填的地址和 Key 存下来再请求；测试通过后回到页面点右下角的绿色小球即可对话。</p>
+          </section>
+          <section class="settings-panel" data-panel="manifest" hidden>
+            <h3>项目清单</h3>
+            <p class="setting-desc">本项目用到的 ComfyUI 版本、自定义节点与模型。清单由工作流自动扫描生成：新增工作流会自动多出条目；链接指向官方仓库 / 魔搭模型页，「放哪里」「做什么用」都写在每行下面。</p>
+            <div class="manifest-body" id="manifestBody">
+              <div class="wf-empty">正在整理清单…</div>
+            </div>
+          </section>
+          <section class="settings-panel" data-panel="about" hidden>
+            <h3>关于创作台</h3>
+            <p class="setting-desc">本地 ComfyUI 创作台：工作流、作品与素材都存在本机，连接本地或远程 ComfyUI 均可。</p>
+
+            <div class="about-title">版本</div>
+            <div class="about-list">
+              <div><span>CYUI 软件版本</span><b>1.1.0</b></div>
+              <div><span>ComfyUI 适配版本</span><b>推荐 &gt; 0.44.0</b></div>
+            </div>
+
+            <div class="about-title">项目仓库</div>
+            <div class="about-list">
+              <div>
+                <span>GitHub 源码</span>
+                <b><a class="about-link" href="https://github.com/wwsmiao/wwdm-cyui" target="_blank" rel="noopener noreferrer">github.com/wwsmiao/wwdm-cyui →</a></b>
+              </div>
+            </div>
+            <p class="about-note">源码、更新记录与问题反馈都在仓库里；不想自己配环境就直接用下面的整合包。</p>
+
+            <div class="about-title">软件整合包</div>
+            <div class="about-list">
+              <div>
+                <span>整合包更新（夸克网盘）</span>
+                <b><a class="about-link" href="https://pan.quark.cn/s/29a3bb94f9cb?pwd=y5iP" target="_blank" rel="noopener noreferrer">打开下载页（提取码 y5iP）→</a></b>
+              </div>
+            </div>
+            <p class="about-note">整合包里是配好环境的 ComfyUI 与本项目用到的全部插件、模型；更新时整包覆盖即可。只想补单个文件的话，看「项目清单」里每个文件的仓库地址。</p>
+
+            <div class="about-title">作者</div>
+            <div class="about-list">
+              <div><span>作者</span><b>微微的猫</b></div>
+              <div><span>B 站主页</span><b><a href="https://space.bilibili.com/472768517" target="_blank" rel="noopener noreferrer">space.bilibili.com/472768517</a></b></div>
+              <div><span>拼多多店铺</span><b>像素织梦</b></div>
+              <div><span>微信</span><b class="about-copy" data-about-copy="weiweismiao" title="点击复制">weiweismiao</b></div>
+              <div><span>QQ</span><b class="about-copy" data-about-copy="1579493251" title="点击复制">1579493251</b></div>
+              <div><span>AI 绘画交流 QQ 群</span><b class="about-copy" data-about-copy="652115462" title="点击复制">652115462</b></div>
+            </div>
+
+            <div class="about-title">反馈与建议</div>
+            <div class="about-list">
+              <div>
+                <span>问题反馈与改进方向收集</span>
+                <b><a class="about-link" href="https://docs.qq.com/form/page/DZmZLQ0prWU5wbEdp" target="_blank" rel="noopener noreferrer">打开腾讯文档表单 →</a></b>
+              </div>
+            </div>
+            <p class="about-note">用着不顺手、缺少什么功能、工作流跑不动，都可以在这里写，我会逐条看。</p>
+
+            <div class="about-title">运行信息</div>
+            <div class="about-list">
+              <div><span>作品目录</span><b>data/&lt;项目名&gt;_opt/</b></div>
+              <div><span>配置文件</span><b>data/settings.json</b></div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <footer class="settings-foot">
+        <span>设置保存后立即生效</span>
+        <div><button class="soft-btn" id="settingsCancel">取消</button><button class="primary-btn" id="settingsSave">保存</button></div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- 输入弹窗：新建 / 重命名分类 -->
+  <div class="modal-layer prompt-layer" id="promptLayer" hidden>
+    <div class="prompt-box-dialog" role="dialog" aria-modal="true">
+      <h3 id="promptTitle">输入</h3>
+      <label class="prompt-label" id="promptLabel" hidden></label>
+      <input id="promptField" type="text" autocomplete="off" spellcheck="false">
+      <div class="dialog-actions">
+        <button class="soft-btn" id="promptCancel">取消</button>
+        <button class="primary-btn" id="promptOk">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加到资产库：选分类 -->
+  <div class="modal-layer lib-save-layer" id="libSaveLayer" hidden>
+    <div class="lib-save-box" role="dialog" aria-modal="true">
+      <header class="lib-save-head">
+        <span class="lib-save-title">添加到资产库</span>
+        <button class="icon-btn ghost" id="libSaveClose" title="关闭"><svg><use href="#i-close"/></svg></button>
+      </header>
+      <div class="lib-save-preview" id="libSavePreview"></div>
+      <div class="lib-save-list" id="libSaveList"></div>
+      <footer class="lib-save-foot">
+        <input id="libSaveNewName" type="text" placeholder="新分类名称" autocomplete="off" spellcheck="false">
+        <button class="soft-btn" id="libSaveCreate"><svg class="tiny"><use href="#i-plus"/></svg>新建分类</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- 资产库右键菜单：移动 / 删除 / 分类管理 -->
+  <div class="context-menu" id="libMenu" hidden></div>
+
+  <!-- 通用小弹窗：确认 / 信息 / 警告 -->
+  <div class="modal-layer dialog-layer" id="dialogLayer" hidden>
+    <div class="dialog-box" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <div class="dialog-icon" id="dialogIcon"></div>
+      <h3 id="dialogTitle"></h3>
+      <p id="dialogMessage"></p>
+      <div class="dialog-actions" id="dialogActions"></div>
+    </div>
+  </div>
+
+  <!-- 文本大编辑弹窗：双击文本节点 / 生成的文本节点打开 -->
+  <div class="modal-layer text-editor-layer" id="textEditorLayer" hidden>
+    <div class="text-editor-box" role="dialog" aria-modal="true">
+      <header class="text-editor-head">
+        <span class="text-editor-title" id="textEditorTitle">编辑文本</span>
+        <button class="icon-btn ghost" id="textEditorClose" title="关闭"><svg><use href="#i-close"/></svg></button>
+      </header>
+      <textarea id="textEditorInput" spellcheck="false" placeholder="在这里编辑文本…"></textarea>
+      <footer class="text-editor-foot">
+        <span class="text-editor-tip" id="textEditorTip">Ctrl + Enter 保存 · Esc 取消</span>
+        <button class="soft-btn" id="textEditorCancel">取消</button>
+        <button class="primary-btn" id="textEditorSave">保存</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- 局部重绘：涂遮罩 + 选重绘工作流（独立弹窗） -->
+  <div class="modal-layer mask-layer" id="maskLayer" hidden>
+    <div class="mask-box" role="dialog" aria-modal="true" aria-labelledby="maskTitle">
+      <header class="mask-head">
+        <span class="mask-head-title" id="maskTitle"><svg class="tiny"><use href="#i-mask"/></svg>局部重绘</span>
+        <span class="mask-head-sub" id="maskSub"></span>
+        <button class="icon-btn ghost" id="maskClose" title="关闭"><svg><use href="#i-close"/></svg></button>
+      </header>
+      <div class="mask-body">
+        <div class="mask-main">
+          <div class="mask-bar">
+            <div class="mask-tools">
+              <button class="mask-tool active" data-mask-tool="brush" title="画笔：涂抹要重绘的区域">
+                <svg class="tiny"><use href="#i-mask"/></svg>画笔
+              </button>
+              <button class="mask-tool" data-mask-tool="eraser" title="橡皮：擦掉涂多的遮罩">
+                <svg class="tiny"><use href="#i-eraser"/></svg>橡皮
+              </button>
+            </div>
+            <label class="mask-size" title="滚轮也能调笔刷大小">
+              <span>笔刷</span>
+              <input id="maskBrush" type="range" min="4" max="240" step="2" value="56">
+              <em id="maskBrushSize">56</em>
+            </label>
+            <div class="mask-tools">
+              <button class="mask-tool" id="maskUndo" title="撤销上一步（Ctrl+Z）">
+                <svg class="tiny"><use href="#i-undo"/></svg>撤销
+              </button>
+              <button class="mask-tool" id="maskClear" title="清空遮罩">
+                <svg class="tiny"><use href="#i-trash"/></svg>清空
+              </button>
+            </div>
+          </div>
+          <div class="mask-stage" id="maskStage">
+            <canvas id="maskCanvas"></canvas>
+            <div class="mask-ring" id="maskRing" hidden></div>
+            <div class="mask-loading" id="maskLoading">正在载入图片…</div>
+          </div>
+          <p class="mask-legend">红色是待重绘区域 · 提交时会转成透明通道交给工作流；滚轮调笔刷大小</p>
+        </div>
+        <aside class="mask-side">
+          <label class="mask-field full">
+            <span>重绘工作流</span>
+            <select id="maskWorkflow"></select>
+          </label>
+          <div class="mask-meta">
+            <div><span>遮罩占比</span><b id="maskArea">0%</b></div>
+            <div><span>画面尺寸</span><b id="maskDims">—</b></div>
+          </div>
+          <label class="mask-field full">
+            <span>要画成什么（提示词）</span>
+            <textarea id="maskPrompt" rows="4" spellcheck="false"
+                      placeholder="描述遮罩区域应该变成什么，例如：一只趴着的橘猫，毛发蓬松"></textarea>
+          </label>
+          <label class="mask-field full">
+            <span>负面提示词（可选，留空用工作流自带）</span>
+            <textarea id="maskNegative" rows="2" spellcheck="false"
+                      placeholder="watermark, text, blurry, bad anatomy"></textarea>
+          </label>
+          <div class="mask-meta">
+            <div><span>重绘幅度 denoise</span><b><input id="maskDenoise" type="number" min="0" max="1" step="0.05" value="1"></b></div>
+            <div><span>遮罩外扩（像素）</span><b><input id="maskGrow" type="number" min="0" max="64" step="1" value="6"></b></div>
+          </div>
+          <p class="mask-note" id="maskNote">步数 / 重绘幅度 / 遮罩外扩等参数在「设置 → 图片参数」里这个工作流下调整。</p>
+        </aside>
+      </div>
+      <footer class="mask-foot">
+        <span class="mask-tip" id="maskTip">先涂要重绘的区域</span>
+        <button class="soft-btn" id="maskCancel">取消</button>
+        <button class="primary-btn" id="maskSubmit"><svg class="tiny"><use href="#i-sparkle"/></svg>开始重绘</button>
+      </footer>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- AI Agent：悬浮球 + 右侧可伸缩面板（独立模块） -->
+  <button class="agent-orb" id="agentOrb" title="薇薇 · AI 创作搭档（可拖动）">
+    <span class="orb-eye left"></span><span class="orb-eye right"></span>
+  </button>
+  <div class="agent-layer" id="agentLayer" data-mode="dock" hidden>
+    <aside class="agent-panel" id="agentPanel">
+      <div class="agent-resize" id="agentResize"></div>
+      <header class="agent-head">
+        <div class="agent-brand"><span class="agent-dot"></span>薇薇</div>
+        <span class="agent-head-model" id="agentHeadModel"></span>
+        <div class="agent-head-actions">
+          <button class="icon-btn" id="agentToggleFull" title="展开 / 收起全屏"><svg><use href="#i-expand"/></svg></button>
+          <button class="icon-btn" id="agentClose" title="收起"><svg><use href="#i-close"/></svg></button>
+        </div>
+      </header>
+      <div class="agent-body" id="agentBody"></div>
+      <footer class="agent-foot">
+        <div class="agent-input">
+          <div class="agent-attachments" id="agentAttach" hidden></div>
+          <textarea id="agentInput" rows="1" placeholder="描述你想创作的内容…"></textarea>
+          <div class="agent-input-row">
+            <button class="icon-btn" id="agentAttachBtn" title="添加图片"><svg><use href="#i-plus"/></svg></button>
+            <button class="icon-btn agent-expand" id="agentInputExpand" title="全屏编辑"><svg><use href="#i-expand"/></svg></button>
+          </div>
+        </div>
+        <div class="agent-tools">
+          <button class="agent-tool agent-skill-btn" data-agent-tool="skill" title="选择技能">
+            <svg><use href="#i-sparkle"/></svg>Skills</button>
+          <span class="spacer"></span>
+          <button class="agent-model-tag" id="agentModelTag" title="点击切换模型 / 修改接入配置">未接入</button>
+          <button class="agent-tool agent-mic" data-agent-tool="mic" title="语音输入（点一下开始说话）">
+            <svg><use href="#i-mic"/></svg></button>
+          <button class="agent-send" id="agentSend" title="发送"><svg><use href="#i-send"/></svg></button>
+        </div>
+      </footer>
+    </aside>
+  </div>
+  <input type="file" id="agentFile" accept="image/*" multiple hidden>
+
+  <!-- 作品工作台：左大图预览 + 右侧操作面板（右键作品卡片打开） -->
+  <div class="wb-layer" id="workbench" hidden>
+    <div class="wb-shell">
+      <section class="wb-stage" id="wbStage">
+        <div class="wb-media" id="wbMedia"></div>
+        <div class="wb-bar">
+          <span class="wb-file" id="wbFile"></span>
+          <div class="wb-bar-tools">
+            <button class="wb-icon" id="wbFit" title="适应窗口 / 实际大小"><svg><use href="#i-expand"/></svg></button>
+            <button class="wb-icon" id="wbDownload" title="下载原图"><svg><use href="#i-download"/></svg></button>
+          </div>
+        </div>
+        <button class="wb-close" id="wbClose" title="关闭（Esc）"><svg><use href="#i-close"/></svg></button>
+      </section>
+      <aside class="wb-side">
+        <header class="wb-side-head">
+          <button class="wb-back" id="wbBack" title="返回" hidden><svg><use href="#i-chevron"/></svg></button>
+          <span id="wbTitle">作品信息</span>
+          <span class="wb-side-size" id="wbSize"></span>
+        </header>
+        <div class="wb-side-body" id="wbSideBody"></div>
+        <footer class="wb-side-foot" id="wbSideFoot"></footer>
+      </aside>
+    </div>
+  </div>
+
+  <!-- 无限画布节点右键菜单 -->
+  <div class="context-menu" id="canvasNodeMenu" hidden></div>
+  <!-- 画布空白处右键：添加创作节点 / 纯输入节点 -->
+  <div class="context-menu cv-add-menu" id="canvasAddMenu" hidden></div>
+
+<script>
+  /* 脚本加载前先把要显示的视图放出来，卡片区保持隐藏 */
+  (function () {
+    var mode = document.documentElement.dataset.view;
+    if (mode === "text") {
+      var notes = document.getElementById("notesView");
+      if (notes) notes.hidden = false;
+    } else if (mode === "canvas") {
+      var canvas = document.getElementById("canvasView");
+      if (canvas) canvas.hidden = false;
+    }
+    document.querySelectorAll("#viewSwitch button").forEach(function (btn) {
+      btn.classList.toggle("active", btn.dataset.mode === mode);
+    });
+  })();
+</script>
+<script src="{{ url_for('static', filename='js/util.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dialog.js') }}"></script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/state.js') }}"></script>
+<script src="{{ url_for('static', filename='js/projects.js') }}"></script>
+<script src="{{ url_for('static', filename='js/composer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/infinite-canvas.js') }}"></script>
+<script src="{{ url_for('static', filename='js/canvas-composer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/works.js') }}"></script>
+<script src="{{ url_for('static', filename='js/card-menu.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mask-editor.js') }}"></script>
+<script src="{{ url_for('static', filename='js/workbench-edit.js') }}"></script>
+<script src="{{ url_for('static', filename='js/notes.js') }}"></script>
+<script src="{{ url_for('static', filename='js/monitor.js') }}"></script>
+<script src="{{ url_for('static', filename='js/gallery.js') }}"></script>
+<script src="{{ url_for('static', filename='js/picker.js') }}"></script>
+<script src="{{ url_for('static', filename='js/asset-lib.js') }}"></script>
+<script src="{{ url_for('static', filename='js/workflow-params.js') }}"></script>
+<script src="{{ url_for('static', filename='js/prompt-templates.js') }}"></script>
+<script src="{{ url_for('static', filename='js/prompt-params.js') }}"></script>
+<script src="{{ url_for('static', filename='js/manifest.js') }}"></script>
+<script src="{{ url_for('static', filename='js/agent-tools.js') }}"></script>
+<script src="{{ url_for('static', filename='js/agent.js') }}"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

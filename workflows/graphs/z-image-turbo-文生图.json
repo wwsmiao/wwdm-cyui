@@ -1,0 +1,232 @@
+{
+  "9": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "65",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.64"
+    }
+  },
+  "62": {
+    "inputs": {
+      "clip_name": "qwen_3_4b_fp8_mixed.safetensors",
+      "type": "lumina2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.73"
+    }
+  },
+  "63": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.73"
+    }
+  },
+  "65": {
+    "inputs": {
+      "samples": [
+        "70",
+        0
+      ],
+      "vae": [
+        "63",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.64"
+    }
+  },
+  "66": {
+    "inputs": {
+      "unet_name": "z-image-turbo-fp8-e4m3fn.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.73"
+    }
+  },
+  "67": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.73"
+    }
+  },
+  "68": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "空Latent图像（SD3）",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.64"
+    }
+  },
+  "69": {
+    "inputs": {
+      "shift": 3,
+      "sampling": "flow",
+      "model": [
+        "77",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": {
+      "title": "采样算法（AuraFlow）",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.64"
+    }
+  },
+  "70": {
+    "inputs": {
+      "seed": 42,
+      "steps": 8,
+      "cfg": 1,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "69",
+        0
+      ],
+      "positive": [
+        "67",
+        0
+      ],
+      "negative": [
+        "71",
+        0
+      ],
+      "latent_image": [
+        "68",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.64"
+    }
+  },
+  "71": {
+    "inputs": {
+      "text": "low quality, bad anatomy, extra digits, missing digits, extra limbs, missing limbs",
+      "clip": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.73"
+    }
+  },
+  "73": {
+    "inputs": {
+      "lora_name": "Kook_Zimage_瑶光.safetensors",
+      "strength_model": 1,
+      "model": [
+        "66",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "74": {
+    "inputs": {
+      "lora_name": "Kook_Zimage_瑶光.safetensors",
+      "strength_model": 1,
+      "model": [
+        "73",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "75": {
+    "inputs": {
+      "lora_name": "Kook_Zimage_瑶光.safetensors",
+      "strength_model": 1,
+      "model": [
+        "74",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "76": {
+    "inputs": {
+      "lora_name": "Kook_Zimage_瑶光.safetensors",
+      "strength_model": 1,
+      "model": [
+        "75",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "77": {
+    "inputs": {
+      "lora_name": "Kook_Zimage_瑶光.safetensors",
+      "strength_model": 1,
+      "model": [
+        "76",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  }
+}

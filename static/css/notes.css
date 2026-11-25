@@ -1,0 +1,80 @@
+/* 文本模式：整页富文本笔记，按项目保存 */
+.notes-view {
+  position: absolute; inset: 0; z-index: 3;
+  padding: 18px 26px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.notes-head {
+  flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.notes-title { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; }
+.notes-title svg { color: var(--accent); }
+.notes-title em {
+  font-style: normal; font-weight: 400; font-size: 11px; color: var(--muted-2);
+  padding-left: 7px; border-left: 1px solid var(--line);
+}
+.notes-actions { display: inline-flex; align-items: center; gap: 8px; }
+.notes-actions .soft-btn, .notes-actions .primary-btn {
+  height: 30px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px;
+}
+.notes-actions .btn-clear { background: #3a2d2f; color: #f0b9b9; }
+.notes-actions .btn-clear:hover { background: #4c3437; color: #ffd6d6; }
+.notes-status {
+  font-size: 11px; color: var(--muted-2); min-width: 66px; text-align: right; transition: color .2s;
+}
+.notes-status.dirty { color: var(--accent); }
+.notes-status.saved { color: #8fd45f; }
+
+/* 工具栏 */
+.notes-toolbar {
+  flex: none; display: flex; align-items: center; gap: 3px;
+  padding: 5px 8px; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.notes-toolbar button {
+  width: 28px; height: 26px; border-radius: 6px; display: grid; place-items: center;
+  color: var(--muted); font-size: 12px; transition: .14s;
+}
+.notes-toolbar button:hover { background: var(--panel-hi); color: var(--text); }
+.notes-toolbar button.active { background: var(--accent-soft); color: var(--accent); }
+.notes-toolbar button svg { width: 15px; height: 15px; }
+.notes-toolbar button b, .notes-toolbar button i, .notes-toolbar button u, .notes-toolbar button s {
+  font-size: 12.5px; line-height: 1;
+}
+.notes-block {
+  height: 26px; padding: 0 6px; border-radius: 6px; outline: none;
+  background: var(--panel-hi); border: 1px solid transparent;
+  color: #cdd1cc; font-size: 11.5px; cursor: pointer;
+}
+.notes-block:hover { color: var(--text); }
+.notes-sep { width: 1px; height: 16px; background: var(--line); margin: 0 5px; flex: none; }
+
+/* 编辑区 */
+.notes-editor {
+  flex: 1; min-height: 0; overflow-y: auto; outline: none;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px 20px; color: var(--text); font-size: 13px; line-height: 1.9;
+  letter-spacing: .1px; transition: border-color .18s, box-shadow .18s;
+}
+.notes-editor:focus { border-color: rgba(214,245,58,.32); box-shadow: 0 0 0 3px rgba(214,245,58,.05); }
+.notes-editor::-webkit-scrollbar { width: 8px; }
+.notes-editor::-webkit-scrollbar-thumb { background: #3c4042; border-radius: 8px; }
+.notes-editor.is-empty::before {
+  content: attr(data-placeholder); color: #6a6f6c; white-space: pre-wrap;
+  pointer-events: none; display: block;
+}
+.notes-editor p { margin: 0 0 10px; }
+.notes-editor h1 { font-size: 19px; font-weight: 600; margin: 14px 0 10px; line-height: 1.5; }
+.notes-editor h2 { font-size: 16px; font-weight: 600; margin: 12px 0 8px; line-height: 1.5; }
+.notes-editor h3 { font-size: 13.5px; font-weight: 600; margin: 10px 0 6px; color: #e6e9e3; }
+.notes-editor ul, .notes-editor ol { margin: 0 0 10px; padding-left: 22px; }
+.notes-editor li { margin-bottom: 4px; }
+.notes-editor blockquote {
+  margin: 0 0 10px; padding: 6px 12px; border-left: 2px solid var(--accent-dim);
+  background: rgba(214,245,58,.05); color: #cfd4cb; border-radius: 0 6px 6px 0;
+}
+.notes-editor a { color: var(--accent); }
+
+.notes-foot {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  font-size: 10.5px; color: var(--muted-2); padding: 0 2px;
+}

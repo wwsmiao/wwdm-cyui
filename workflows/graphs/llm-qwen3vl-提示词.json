@@ -1,0 +1,264 @@
+{
+  "5": {
+    "inputs": {
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+      "type": "ideogram4",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP",
+      "cnr_id": "comfy-core",
+      "ver": "0.25.0"
+    }
+  },
+  "7": {
+    "inputs": {
+      "source": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "PreviewAny",
+    "_meta": {
+      "title": "预览任意",
+      "cnr_id": "comfy-core",
+      "ver": "0.25.0"
+    }
+  },
+  "8": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "图片1",
+      "cnr_id": "comfy-core",
+      "ver": "0.25.0"
+    }
+  },
+  "10": {
+    "inputs": {
+      "prompt": [
+        "13",
+        0
+      ],
+      "max_length": 512,
+      "sampling_mode": "on",
+      "sampling_mode.temperature": 0.7,
+      "sampling_mode.top_k": 64,
+      "sampling_mode.top_p": 0.95,
+      "sampling_mode.min_p": 0.05,
+      "sampling_mode.repetition_penalty": 1.05,
+      "sampling_mode.presence_penalty": 0,
+      "sampling_mode.seed": 0,
+      "thinking": "randomize",
+      "use_default_template": false,
+      "mtp": "auto",
+      "clip": [
+        "5",
+        0
+      ],
+      "images.image1": [
+        "8",
+        0
+      ],
+      "images.image2": [
+        "16",
+        0
+      ],
+      "images.image3": [
+        "17",
+        0
+      ],
+      "images.image4": [
+        "18",
+        0
+      ],
+      "images.image5": [
+        "19",
+        0
+      ],
+      "videos.video1": [
+        "25",
+        0
+      ],
+      "videos.video2": [
+        "27",
+        0
+      ],
+      "videos.video3": [
+        "29",
+        0
+      ],
+      "audios.audio1": [
+        "21",
+        0
+      ],
+      "audios.audio2": [
+        "22",
+        0
+      ],
+      "audios.audio3": [
+        "23",
+        0
+      ],
+      "system_prompt": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "TextGenerateV2",
+    "_meta": {
+      "title": "Generate Text"
+    }
+  },
+  "12": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "系统提示词"
+    }
+  },
+  "13": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "用户提示词"
+    }
+  },
+  "16": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "图片2",
+      "cnr_id": "comfy-core",
+      "ver": "0.25.0"
+    }
+  },
+  "17": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "图片3",
+      "cnr_id": "comfy-core",
+      "ver": "0.25.0"
+    }
+  },
+  "18": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "图片4",
+      "cnr_id": "comfy-core",
+      "ver": "0.25.0"
+    }
+  },
+  "19": {
+    "inputs": {
+      "image": "example.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "图片5",
+      "cnr_id": "comfy-core",
+      "ver": "0.25.0"
+    }
+  },
+  "21": {
+    "inputs": {},
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "音频1"
+    }
+  },
+  "22": {
+    "inputs": {
+      "audio": null
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "音频2"
+    }
+  },
+  "23": {
+    "inputs": {
+      "audio": null
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "音频3"
+    }
+  },
+  "24": {
+    "inputs": {},
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "加载视频"
+    }
+  },
+  "25": {
+    "inputs": {
+      "video": [
+        "24",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "获取视频元素"
+    }
+  },
+  "26": {
+    "inputs": {
+      "file": null
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "加载视频"
+    }
+  },
+  "27": {
+    "inputs": {
+      "video": [
+        "26",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "获取视频元素"
+    }
+  },
+  "28": {
+    "inputs": {
+      "file": null
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "加载视频"
+    }
+  },
+  "29": {
+    "inputs": {
+      "video": [
+        "28",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "获取视频元素"
+    }
+  }
+}

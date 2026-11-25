@@ -1,0 +1,113 @@
+/* 资产库：分类栏 + 添加到资产库弹窗 + 输入弹窗 */
+.prompt-layer, .lib-save-layer { z-index: 200; }
+
+/* ---------- 分类栏（素材弹窗 / 图库里，资产库页签） ---------- */
+.lib-folders {
+  flex: none; display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; overflow-x: auto; overflow-y: hidden;
+  border-bottom: 1px solid var(--line-soft);
+  scrollbar-width: none;
+}
+.lib-folders::-webkit-scrollbar { height: 0; }
+.lib-folder {
+  flex: none; height: 28px; padding: 0 10px; border-radius: 8px;
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--panel); color: var(--muted); font-size: 11.5px;
+  border: 1px solid transparent; transition: .15s; max-width: 200px;
+}
+.lib-folder:hover { background: var(--panel-hi); color: var(--text); }
+.lib-folder.active {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: rgba(214,245,58,.3);
+}
+.lib-folder svg { width: 13px; height: 13px; }
+.lib-folder-name {
+  max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lib-count {
+  font-size: 9.5px; color: var(--muted-2);
+  padding: 0 5px; border-radius: 5px; background: rgba(255,255,255,.06);
+}
+.lib-folder.active .lib-count { color: var(--accent); background: rgba(214,245,58,.16); }
+.lib-folder-new { color: var(--accent-dim); border-style: dashed; border-color: rgba(214,245,58,.25); }
+
+/* ---------- 添加到资产库弹窗 ---------- */
+.lib-save-box {
+  width: min(420px, calc(100vw - 60px)); max-height: min(70vh, 560px);
+  display: flex; flex-direction: column;
+  background: #1d201f; border: 1px solid #3b413a; border-radius: 14px;
+  box-shadow: 0 26px 70px rgba(0,0,0,.6); overflow: hidden;
+}
+.lib-save-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 13px 9px; border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.lib-save-title { flex: 1; font-size: 12.5px; font-weight: 600; }
+.lib-save-preview {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 13px; border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.lib-save-preview img {
+  width: 54px; height: 54px; border-radius: 8px; object-fit: cover; flex: none;
+  background: #141615; border: 1px solid var(--line);
+}
+.lib-save-preview span {
+  min-width: 0; font-size: 11px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lib-save-list {
+  flex: 1; min-height: 0; overflow-y: auto; padding: 7px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.lib-cat {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px; border-radius: 9px; background: transparent;
+  color: var(--text); font-size: 12px; text-align: left;
+}
+.lib-cat:hover { background: rgba(255,255,255,.07); }
+.lib-cat svg { width: 14px; height: 14px; color: var(--muted); }
+.lib-cat-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-cat-count { font-size: 10px; color: var(--muted-2); }
+.lib-empty { padding: 18px 10px; text-align: center; color: var(--muted); font-size: 11.5px; }
+.lib-save-foot {
+  display: flex; gap: 7px; padding: 9px 12px 11px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.lib-save-foot input {
+  flex: 1; min-width: 0; height: 30px; padding: 0 9px;
+  border-radius: 8px; background: #141615; border: 1px solid var(--line);
+  color: var(--text); font-size: 11.5px; outline: none;
+}
+.lib-save-foot input:focus { border-color: var(--accent-dim); }
+
+/* ---------- 输入弹窗 ---------- */
+.prompt-box-dialog {
+  width: min(380px, calc(100vw - 60px));
+  background: #1d201f; border: 1px solid #3b413a; border-radius: 14px;
+  box-shadow: 0 26px 70px rgba(0,0,0,.6); padding: 16px 16px 14px;
+}
+.prompt-box-dialog h3 { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+.prompt-label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 11px; }
+.prompt-box-dialog input {
+  width: 100%; height: 34px; padding: 0 10px; border-radius: 8px;
+  background: #141615; border: 1px solid var(--line); color: var(--text);
+  font-size: 12.5px; outline: none;
+}
+.prompt-box-dialog input:focus { border-color: var(--accent-dim); }
+.prompt-box-dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+.lib-save-preview video {
+  width: 54px; height: 54px; border-radius: 8px; object-fit: cover; flex: none;
+  background: #141615; border: 1px solid var(--line);
+}
+.lib-save-ph {
+  width: 54px; height: 54px; border-radius: 8px; flex: none;
+  display: grid; place-items: center; background: #141615; border: 1px solid var(--line);
+  color: var(--muted);
+}
+.lib-save-ph svg { width: 20px; height: 20px; }
+
+/* 右键菜单里的分类数量 */
+#libMenu .menu-count {
+  margin-left: auto; padding-left: 12px; font-size: 10px; color: var(--muted-2);
+}

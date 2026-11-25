@@ -1,0 +1,63 @@
+/* 左上角项目管理抽屉：弹出 / 收缩 */
+.project-drawer {
+  position: fixed; top: 48px; left: 0; bottom: 0; z-index: 70;
+  width: 288px; display: flex; flex-direction: column;
+  background: #202323; border-right: 1px solid var(--line);
+  box-shadow: 14px 0 40px rgba(0,0,0,.4);
+  transform: translateX(-100%); transition: transform .24s ease;
+}
+.project-drawer.open { transform: translateX(0); }
+.drawer-backdrop { position: fixed; inset: 48px 0 0; z-index: 65; background: rgba(0,0,0,.25); }
+.drawer-head {
+  height: 48px; flex: none; padding: 0 8px 0 16px;
+  border-bottom: 1px solid var(--line-soft);
+  display: flex; align-items: center; justify-content: space-between; font-weight: 600;
+}
+.drawer-head > span { display: inline-flex; align-items: center; gap: 8px; }
+.drawer-head svg { color: var(--accent); }
+.drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; }
+.drawer-body::-webkit-scrollbar { width: 7px; }
+.drawer-body::-webkit-scrollbar-thumb { background: #3c4042; border-radius: 7px; }
+.project-row {
+  display: flex; align-items: center; gap: 8px; padding: 8px 8px;
+  border-radius: 9px; margin-bottom: 5px; border: 1px solid transparent;
+  transition: .14s;
+}
+.project-row:hover { background: rgba(255,255,255,.04); }
+.project-row.active { background: var(--accent-soft); border-color: rgba(214,245,58,.2); }
+.project-row input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--accent); flex: none; cursor: pointer; }
+.project-row .row-name {
+  flex: 1; min-width: 0; font-size: 12px; color: #dfe2dd;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+}
+.project-row.active .row-name { color: var(--accent); }
+.project-row .row-meta { font-size: 10px; color: var(--muted-2); white-space: nowrap; }
+.project-row .row-actions { display: flex; gap: 1px; opacity: 0; transition: .14s; }
+.project-row:hover .row-actions, .project-row.active .row-actions { opacity: 1; }
+.project-row .row-actions button { width: 22px; height: 22px; border-radius: 5px; display: grid; place-items: center; color: var(--muted); }
+.project-row .row-actions button:hover { background: rgba(255,255,255,.09); color: var(--text); }
+.project-row .row-actions button.danger:hover { color: var(--danger); }
+.project-row .row-actions svg { width: 13px; height: 13px; }
+.project-row .rename-input {
+  flex: 1; min-width: 0; height: 26px; padding: 0 7px; border-radius: 6px;
+  background: #151718; border: 1px solid var(--accent-dim); outline: none; font-size: 12px;
+}
+.drawer-empty { color: var(--muted-2); font-size: 11px; text-align: center; padding: 30px 0; }
+.drawer-foot {
+  flex: none; padding: 12px 10px; border-top: 1px solid var(--line-soft);
+  display: flex; gap: 8px;
+}
+.drawer-foot button { flex: 1; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 11.5px; }
+.drawer-foot .soft-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* 项目多选：Ctrl+单击选中，行加高亮；不再用勾选框 */
+.project-row.selected {
+  background: rgba(214,245,58,.08);
+  border-color: rgba(214,245,58,.35);
+}
+.project-row.selected .row-name { color: var(--accent); }
+.project-row.selected::after {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); flex: none;
+}

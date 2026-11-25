@@ -1,0 +1,70 @@
+/* 顶部工具栏：左项目 / 中视图工具 / 右模式与状态 */
+.topbar {
+  height: 48px; flex: none; display: flex; align-items: center;
+  justify-content: space-between; gap: 16px; padding: 0 14px;
+  background: var(--bg-soft); border-bottom: 1px solid var(--line-soft);
+  position: relative; z-index: 40;
+}
+.top-left, .top-center, .top-right { display: flex; align-items: center; gap: 7px; }
+.top-center { position: absolute; left: 50%; transform: translateX(-50%); }
+
+.logo-btn {
+  width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent); transition: .16s;
+}
+.logo-btn:hover { background: rgba(214,245,58,.22); }
+.logo-btn svg { width: 17px; height: 17px; }
+
+.project-title {
+  font-size: 13px; font-weight: 600; padding: 4px 7px; border-radius: 6px;
+  max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  cursor: text; transition: .16s;
+}
+.project-title:hover { background: rgba(255,255,255,.05); }
+.project-title.editing {
+  background: #111; border: 1px solid var(--accent); outline: none;
+  min-width: 110px; padding: 3px 6px; cursor: text;
+}
+
+.zoom-group {
+  display: flex; align-items: center; height: 30px; border-radius: 8px;
+  background: var(--panel); overflow: hidden;
+}
+.zoom-group button { width: 28px; height: 30px; display: grid; place-items: center; color: var(--muted); }
+.zoom-group button:hover { background: var(--panel-hi); color: var(--text); }
+.zoom-group button svg { width: 14px; height: 14px; }
+.zoom-group span { min-width: 40px; text-align: center; color: var(--muted); font-size: 11px; }
+
+.view-switch button { font-size: 12px; }
+.stat-pill {
+  height: 30px; padding: 0 3px 0 10px; border-radius: 8px; background: var(--panel);
+  display: inline-flex; align-items: center; gap: 8px; color: var(--muted);
+  font-size: 11px; font-variant-numeric: tabular-nums; transition: .16s; cursor: pointer;
+}
+.stat-pill:hover { background: var(--panel-hi); color: var(--text); }
+.stat-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #6c7070; }
+.stat-pill .dot.online { background: var(--accent); box-shadow: 0 0 8px rgba(214,245,58,.6); }
+.stat-pill .dot.offline { background: var(--danger); }
+/* 长条：显示生成进度或系统资源，点它自己切换 */
+.stat-switch {
+  display: inline-flex; align-items: center; gap: 8px; height: 24px;
+  padding: 0 4px; border-radius: 6px; color: inherit; font-size: 11px;
+}
+.stat-switch:hover { color: var(--text); }
+.stat-bar {
+  width: 48px; height: 5px; border-radius: 4px; background: #343839;
+  overflow: hidden; flex: none;
+}
+.stat-bar i {
+  display: block; height: 100%; width: 0; border-radius: 4px;
+  background: var(--accent); transition: width .35s ease, background .2s;
+}
+.stat-bar i.warm { background: #f0c04a; }
+.stat-bar i.hot { background: #ef8a4c; }
+.stat-label { white-space: nowrap; }
+.stat-open {
+  width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center;
+  color: var(--muted-2);
+}
+.stat-open:hover { background: rgba(255,255,255,.09); color: var(--text); }
+#shareBtn { background: var(--accent); }

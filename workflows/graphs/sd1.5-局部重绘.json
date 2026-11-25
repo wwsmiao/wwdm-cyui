@@ -1,0 +1,142 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 858029884474956,
+      "steps": 20,
+      "cfg": 8,
+      "sampler_name": "uni_pc_bh2",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "29",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "26",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.18"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "29",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.18"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "low quality, bad anatomy, watermark, text, extra digits, blurry",
+      "clip": [
+        "29",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.18"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "29",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.18"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "sd15-inpaint",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.18"
+    }
+  },
+  "20": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.18"
+    }
+  },
+  "26": {
+    "inputs": {
+      "grow_mask_by": 6,
+      "pixels": [
+        "20",
+        0
+      ],
+      "vae": [
+        "29",
+        2
+      ],
+      "mask": [
+        "20",
+        1
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "VAE编码（局部重绘）",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.18"
+    }
+  },
+  "29": {
+    "inputs": {
+      "ckpt_name": "512-inpainting-ema.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Checkpoint加载器（简易）",
+      "cnr_id": "comfy-core",
+      "ver": "0.3.18"
+    }
+  }
+}

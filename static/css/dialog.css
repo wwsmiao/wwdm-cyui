@@ -1,0 +1,27 @@
+/* 通用小弹窗：删除确认 / 信息 / 警告 */
+.dialog-layer { z-index: 180; background: rgba(8,9,9,.72); }
+.dialog-box {
+  width: min(400px, 90vw); padding: 22px 22px 18px;
+  background: #282b2d; border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: var(--shadow); text-align: center;
+  animation: dialog-in .18s ease both;
+}
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+.dialog-icon {
+  width: 44px; height: 44px; margin: 0 auto 14px; border-radius: 13px;
+  display: grid; place-items: center; background: var(--accent-soft); color: var(--accent);
+}
+.dialog-icon svg { width: 22px; height: 22px; }
+.dialog-icon.info { background: rgba(120,180,255,.14); color: #8ab8ff; }
+.dialog-icon.warn { background: rgba(255,184,77,.14); color: #ffb84d; }
+.dialog-icon.danger { background: rgba(255,112,112,.14); color: var(--danger); }
+.dialog-box h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+.dialog-box p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.8; white-space: pre-wrap; word-break: break-word; }
+.dialog-actions { display: flex; justify-content: center; gap: 9px; margin-top: 22px; }
+.dialog-actions button { min-width: 86px; height: 34px; display: inline-flex; align-items: center; justify-content: center; }
+.dialog-actions .btn-danger { background: #e35555; color: #fff; font-weight: 600; border-radius: 8px; }
+.dialog-actions .btn-danger:hover { background: #f06464; }
+.dialog-actions .soft-btn { background: #383c3e; }
+
+/* 纯文本查看（提示词 txt）：长文本内部滚动，方便选中复制 */
+#dialogMessage { max-height: 46vh; overflow-y: auto; text-align: left; user-select: text; }

@@ -1,0 +1,26 @@
+/* 卡片右键菜单 */
+.context-menu {
+  position: fixed; z-index: 210; min-width: 176px; padding: 6px;
+  background: #2b2e30; border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 16px 38px rgba(0,0,0,.5);
+  display: flex; flex-direction: column; gap: 1px;
+  animation: menu-in .12s ease both;
+}
+@keyframes menu-in { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+.context-menu button {
+  height: 31px; padding: 0 9px; border-radius: 6px; width: 100%;
+  display: flex; align-items: center; gap: 9px;
+  color: #cdd1cc; font-size: 11.5px; text-align: left; transition: .12s;
+}
+.context-menu button:hover { background: var(--accent-soft); color: var(--accent); }
+.context-menu button svg { width: 14px; height: 14px; color: var(--muted-2); flex: none; }
+.context-menu button:hover svg { color: var(--accent); }
+.context-menu button .menu-tag {
+  margin-left: auto; font-size: 9px; padding: 1px 5px; border-radius: 5px;
+  background: rgba(255,255,255,.07); color: var(--muted-2);
+}
+.context-menu button:hover .menu-tag { background: rgba(214,245,58,.16); color: var(--accent); }
+.context-menu .menu-sep { height: 1px; margin: 5px 7px; background: var(--line-soft); }
+
+/* 卡片上右键的提示：悬停时轻微高亮，暗示可操作 */
+.work-card.menu-target { border-color: var(--accent-dim); }

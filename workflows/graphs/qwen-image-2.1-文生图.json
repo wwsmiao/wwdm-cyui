@@ -1,0 +1,250 @@
+{
+  "461": {
+    "inputs": {
+      "filename_prefix": "Qwen_image_2.1",
+      "format": "png",
+      "format.bit_depth": "8-bit",
+      "format.input_color_space": "sRGB",
+      "images": [
+        "496",
+        0
+      ]
+    },
+    "class_type": "SaveImageAdvanced",
+    "_meta": {
+      "title": "保存图像（高级）"
+    }
+  },
+  "491": {
+    "inputs": {
+      "unet_name": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器"
+    }
+  },
+  "492": {
+    "inputs": {
+      "prompt": "",
+      "negative_prompt": "",
+      "resolution": 1024,
+      "clip": [
+        "493",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImage21",
+    "_meta": {
+      "title": "文本编码 Qwen Image 2.1"
+    }
+  },
+  "493": {
+    "inputs": {
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP"
+    }
+  },
+  "494": {
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE"
+    }
+  },
+  "495": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空Latent图像"
+    }
+  },
+  "496": {
+    "inputs": {
+      "samples": [
+        "503",
+        0
+      ],
+      "vae": [
+        "494",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "502": {
+    "inputs": {
+      "sigmas": "1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0"
+    },
+    "class_type": "ManualSigmas",
+    "_meta": {
+      "title": "Manual Sigmas (Qwen-Image-2.1-Turbo 8-step schedule)"
+    }
+  },
+  "503": {
+    "inputs": {
+      "noise": [
+        "505",
+        0
+      ],
+      "guider": [
+        "506",
+        0
+      ],
+      "sampler": [
+        "504",
+        0
+      ],
+      "sigmas": [
+        "502",
+        0
+      ],
+      "latent_image": [
+        "495",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Sampler Custom Advanced"
+    }
+  },
+  "504": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSampler Select (euler)"
+    }
+  },
+  "505": {
+    "inputs": {
+      "noise_seed": 619843969056427
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "Random Noise"
+    }
+  },
+  "506": {
+    "inputs": {
+      "cfg": 1,
+      "model": [
+        "507",
+        0
+      ],
+      "positive": [
+        "492",
+        0
+      ],
+      "negative": [
+        "492",
+        1
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFG引导器"
+    }
+  },
+  "507": {
+    "inputs": {
+      "device": "auto",
+      "dtype": "default",
+      "model": [
+        "511",
+        0
+      ]
+    },
+    "class_type": "QwenImage21Cache",
+    "_meta": {
+      "title": "Qwen Image 2.1 缓存"
+    }
+  },
+  "508": {
+    "inputs": {
+      "lora_name": "qwt-xiayu-v1.safetensors",
+      "strength_model": 1.2,
+      "model": [
+        "491",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "509": {
+    "inputs": {
+      "lora_name": "qwt-xiayu-v1.safetensors",
+      "strength_model": 1.2,
+      "model": [
+        "508",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "510": {
+    "inputs": {
+      "lora_name": "qwt-xiayu-v1.safetensors",
+      "strength_model": 1.2,
+      "model": [
+        "509",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "511": {
+    "inputs": {
+      "lora_name": "qwt-xiayu-v1.safetensors",
+      "strength_model": 1.2,
+      "model": [
+        "512",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "512": {
+    "inputs": {
+      "lora_name": "qwt-xiayu-v1.safetensors",
+      "strength_model": 1.2,
+      "model": [
+        "510",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  }
+}

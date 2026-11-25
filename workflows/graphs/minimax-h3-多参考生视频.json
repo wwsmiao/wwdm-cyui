@@ -1,0 +1,704 @@
+{
+  "92": {
+    "inputs": {
+      "filename_prefix": "video/MiniMax_H3",
+      "format": "auto",
+      "format.codec": "auto",
+      "codec": "auto",
+      "video": [
+        "130",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "保存视频",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "115": {
+    "inputs": {
+      "aspect_ratio": "9:16 (Portrait Widescreen)",
+      "megapixels": 0.8,
+      "multiple": 32
+    },
+    "class_type": "ResolutionSelector",
+    "_meta": {
+      "title": "视频尺寸",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "119": {
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "120": {
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "121": {
+    "inputs": {
+      "samples": [
+        "125",
+        0
+      ],
+      "vae": [
+        "120",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "VAE解码（音频）",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "122": {
+    "inputs": {
+      "samples": [
+        "125",
+        0
+      ],
+      "vae": [
+        "119",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "123": {
+    "inputs": {
+      "sampler_name": "res_multistep"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "K采样器选择",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "124": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": [
+        "142",
+        0
+      ],
+      "denoise": 1,
+      "model": [
+        "127",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "基本调度器",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "125": {
+    "inputs": {
+      "noise": [
+        "129",
+        0
+      ],
+      "guider": [
+        "126",
+        0
+      ],
+      "sampler": [
+        "123",
+        0
+      ],
+      "sigmas": [
+        "124",
+        0
+      ],
+      "latent_image": [
+        "136",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "自定义采样器（高级）",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "126": {
+    "inputs": {
+      "model": [
+        "169",
+        0
+      ],
+      "conditioning": [
+        "136",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "基本引导器",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "127": {
+    "inputs": {
+      "unet_name": "MiniMax_H3_Ref2VA_pruned_nvfp4.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "128": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "129": {
+    "inputs": {
+      "noise_seed": 159602771073820
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "随机噪波",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "130": {
+    "inputs": {
+      "fps": [
+        "132",
+        0
+      ],
+      "bit_depth": 8,
+      "color_space": "sRGB",
+      "chroma_subsampling": "auto",
+      "codec": "none",
+      "images": [
+        "122",
+        0
+      ],
+      "audio": [
+        "121",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "创建视频",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "131": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "132",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "数学表达式",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "132": {
+    "inputs": {
+      "value": 16
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "帧率",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "136": {
+    "inputs": {
+      "prompt": [
+        "138",
+        0
+      ],
+      "width": [
+        "115",
+        0
+      ],
+      "height": [
+        "115",
+        1
+      ],
+      "length": [
+        "131",
+        1
+      ],
+      "ref_image_size": "match",
+      "clip": [
+        "128",
+        0
+      ],
+      "vae": [
+        "119",
+        0
+      ],
+      "audio_vae": [
+        "120",
+        0
+      ],
+      "ref_images.ref_image_0": [
+        "137",
+        0
+      ],
+      "ref_images.ref_image_1": [
+        "139",
+        0
+      ],
+      "ref_images.ref_image_2": [
+        "154",
+        0
+      ],
+      "ref_images.ref_image_3": [
+        "155",
+        0
+      ],
+      "ref_images.ref_image_4": [
+        "158",
+        0
+      ],
+      "ref_images.ref_image_5": [
+        "159",
+        0
+      ],
+      "ref_images.ref_image_6": [
+        "160",
+        0
+      ],
+      "ref_images.ref_image_7": [
+        "161",
+        0
+      ],
+      "ref_images.ref_image_8": [
+        "162",
+        0
+      ],
+      "ref_videos.ref_video_0": [
+        "152",
+        0
+      ],
+      "ref_videos.ref_video_1": [
+        "164",
+        0
+      ],
+      "ref_videos.ref_video_2": [
+        "166",
+        0
+      ],
+      "ref_video_audios.ref_video_audio_0": [
+        "152",
+        1
+      ],
+      "ref_video_audios.ref_video_audio_1": [
+        "164",
+        1
+      ],
+      "ref_video_audios.ref_video_audio_2": [
+        "166",
+        1
+      ],
+      "ref_audios.ref_audio_0": [
+        "153",
+        0
+      ],
+      "ref_audios.ref_audio_1": [
+        "157",
+        0
+      ],
+      "ref_audios.ref_audio_2": [
+        "156",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3ReferenceToVideo",
+    "_meta": {
+      "title": "MiniMax H3 参考转视频",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "137": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "138": {
+    "inputs": {
+      "value": "<Subject 1> refers to the young woman in Picture 1, featuring black bangs, long dark hair, and a black strapless top.\n<Subject 2> refers to the young woman in Picture 2, featuring a traditional Chinese updo, ornate hair accessories, and a light blue hanfu-style dress.\n\nintegrated_multimodal_description:\nA cinematic, live-action sequence shot in a softly lit, modern indoor room with a shallow depth of field. The visual style features large-format cinematography, emphasizing natural skin tones and soft, diffused highlight transitions. The camera maintains a series of tight facial close-ups, using precise shot-reverse-shot editing to establish the dialogue between the two distinct characters.\n\n[Shot 1] A tight close-up of <Subject 1> (S1). The background is a heavily blurred, warm indoor room with soft ambient light. She looks slightly off-camera to the right with a deeply anxious expression, her brows furrowed and eyes wide. She speaks with a fast, breathy voice: (S1) <d>[Chinese] 公子怎么样了？</d>\n[Shot 2] At 00:03.500, the camera cuts to a matching tight close-up of <Subject 2> (S2), maintaining the eye-line match. The indoor background remains softly blurred. She looks slightly off-camera to the left, her expression serene and calm. The camera pushes in with a very small amplitude at a slow speed toward her face. She replies gently: (S2) <d>[Chinese] 还好，已经脱离危险了。</d>\n[Shot 3] At 00:07.000, the camera cuts back to <Subject 1> (S1), keeping the same close-up framing. Her anxiety slightly subsides but she remains deeply concerned, leaning slightly forward toward the camera. She asks quickly: (S1) <d>[Chinese] 那接下来做什么？</d>\n[Shot 4] At 00:10.000, the camera cuts back to <Subject 2> (S2). Her expression softens into a gentle, reassuring smile. The ambient light catches her eyes, highlighting her calm demeanor. She speaks with a steady, comforting voice: (S2) <d>[Chinese] 等公子醒了再说！</d> She holds the reassuring smile, looking steadily toward the left until the end of the video.\n\noverall_soundscape:\nQuiet, warm indoor room tone. The soft rustle of fabric is heard as Subject 1 leans forward at the 7-second mark. Subtle, tense breathing can be heard underneath the first dialogue exchange.\n\nnon_diegetic_music:\nA soft, tense string ostinato plays during the first two shots, reflecting the anxiety. As Subject 2 smiles in the final shot, the strings resolve into a warm, gentle piano chord, bringing a sense of relief and calm."
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "视频正面提示词",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "139": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "141": {
+    "inputs": {
+      "switch": [
+        "146",
+        0
+      ],
+      "on_false": [
+        "127",
+        0
+      ],
+      "on_true": [
+        "145",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "If/Else Switch (model)",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "142": {
+    "inputs": {
+      "switch": [
+        "146",
+        0
+      ],
+      "on_false": [
+        "143",
+        0
+      ],
+      "on_true": [
+        "144",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "If/Else Switch (Steps)",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "143": {
+    "inputs": {
+      "value": 20
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Int (Full)",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "144": {
+    "inputs": {
+      "value": 4
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Int (Lightning LoRA)",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "145": {
+    "inputs": {
+      "lora_name": "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+      "strength_model": 1,
+      "model": [
+        "127",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "146": {
+    "inputs": {
+      "value": false
+    },
+    "class_type": "PrimitiveBoolean",
+    "_meta": {
+      "title": "加速lora开关-为真时加速lora",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "151": {
+    "inputs": {
+      "file": ""
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "加载视频"
+    }
+  },
+  "152": {
+    "inputs": {
+      "video": [
+        "151",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "获取视频元素"
+    }
+  },
+  "153": {
+    "inputs": {
+      "audio": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "加载音频"
+    }
+  },
+  "154": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "155": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "156": {
+    "inputs": {
+      "audio": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "加载音频"
+    }
+  },
+  "157": {
+    "inputs": {
+      "audio": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "加载音频"
+    }
+  },
+  "158": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "159": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "160": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "161": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "162": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "163": {
+    "inputs": {
+      "file": ""
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "加载视频"
+    }
+  },
+  "164": {
+    "inputs": {
+      "video": [
+        "163",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "获取视频元素"
+    }
+  },
+  "165": {
+    "inputs": {
+      "file": ""
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "加载视频"
+    }
+  },
+  "166": {
+    "inputs": {
+      "video": [
+        "165",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "获取视频元素"
+    }
+  },
+  "168": {
+    "inputs": {
+      "lora_name": "Kook_Zimage_瑶光.safetensors",
+      "strength_model": 1,
+      "model": [
+        "170",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "169": {
+    "inputs": {
+      "lora_name": "Kook_Zimage_瑶光.safetensors",
+      "strength_model": 1,
+      "model": [
+        "168",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "170": {
+    "inputs": {
+      "lora_name": "Kook_Zimage_瑶光.safetensors",
+      "strength_model": 1,
+      "model": [
+        "141",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  }
+}
