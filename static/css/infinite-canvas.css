@@ -127,6 +127,9 @@
   box-shadow: 0 0 0 1px rgba(214,245,58,.2), 0 16px 40px rgba(0,0,0,.55);
 }
 
+/* 节点和组框都不走浏览器原生拖拽（否则拖动会变成拖图片，指针流被打断） */
+.cv-node, .cv-node *, .cv-group, .cv-group * { -webkit-user-drag: none; }
+
 .cv-node-media {
   height: 154px; background: #181a19; position: relative;
   display: flex; align-items: center; justify-content: center; overflow: hidden;
@@ -386,18 +389,18 @@
   pointer-events: none;
 }
 .cv-group {
-  position: absolute; pointer-events: auto; z-index: 0; cursor: grab;
+  position: absolute; pointer-events: auto; z-index: 0; cursor: default;
   border: 1.5px dashed rgba(214,245,58,.4);
   background: rgba(214,245,58,.06); border-radius: 14px;
   box-shadow: 0 8px 30px rgba(0,0,0,.25); transition: border-color .16s, background .16s;
 }
-.cv-group:active { cursor: grabbing; }
-.cv-group:hover { border-color: rgba(214,245,58,.6); }
+.cv-group:hover { border-color: rgba(214,245,58,.6); cursor: grab; }
 .cv-group.selected {
   border-color: var(--accent); background: rgba(214,245,58,.1);
   box-shadow: 0 0 0 1px rgba(214,245,58,.25), 0 10px 30px rgba(0,0,0,.35);
 }
-.cv-group-head { height: 34px; padding: 0 8px; display: flex; align-items: center; }
+.cv-group-head { height: 34px; padding: 0 8px; display: flex; align-items: center; cursor: grab; }
+.cv-group-head:active { cursor: grabbing; }
 .cv-group-name {
   flex: 1; min-width: 0; max-width: 220px; height: 24px; padding: 0 8px;
   border-radius: 6px; background: rgba(20,22,20,.5); color: #cbd3b8;

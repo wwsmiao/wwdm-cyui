@@ -905,13 +905,21 @@ const Composer = {
       input.value = generated;
       this.autoGrow();
       const tpl = result.template?.name ? ` · ${result.template.name}` : "";
+      // 实际送进模型的素材数量（以服务端回执为准）：多图反推时能马上看出有没有漏图
+      const used = result.assets;
+      const sent = used
+        ? [used.images?.length ? `${used.images.length} 图` : "",
+          used.videos?.length ? `${used.videos.length} 视频` : "",
+          used.audios?.length ? `${used.audios.length} 音频` : ""].filter(Boolean).join(" + ")
+        : "";
+      const sentText = sent ? ` · 送入 ${sent}` : "";
       // 同时存一份 txt 到图库「提示词」，切换模式 / 刷新页面都不会丢
       const title = (text || this.functionLabel() || "提示词").slice(0, 20);
       try {
         const saved = await API.savePromptText(generated, title);
-        toast(`提示词已生成${tpl} · 已存到图库「${saved.category || "提示词"}」`);
+        toast(`提示词已生成${tpl}${sentText} · 已存到图库「${saved.category || "提示词"}」`);
       } catch {
-        toast(`提示词已生成${tpl}（存 txt 失败，可手动复制）`, true);
+        toast(`提示词已生成${tpl}${sentText}（存 txt 失败，可手动复制）`, true);
       }
     } catch (error) {
       if (error?.aborted) toast("已停止提示词生成");

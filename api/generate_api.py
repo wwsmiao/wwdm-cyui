@@ -196,7 +196,9 @@ def video_last_frame():
     if not url:
         return jsonify({"error": "缺少视频地址"}), 400
     try:
-        task = services()["frames"].last_frame(url, data.get("project_id") or "")
+        task = services()["frames"].last_frame(
+            url, data.get("project_id") or "", data.get("ref") or None,
+        )
     except VideoFrameError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:

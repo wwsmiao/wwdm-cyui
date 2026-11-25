@@ -1049,7 +1049,9 @@ const Canvas = {
     this._frameBusy = true;
     toast("正在提取视频尾帧…");
     try {
-      const result = await API.videoLastFrame(url, State.activeId);
+      // 素材节点可能是 ComfyUI 输入/输出目录或资产库里的视频，带上引用后端才找得到文件
+      const ref = node.type === "asset" ? node.ref : null;
+      const result = await API.videoLastFrame(url, State.activeId, ref);
       const task = result?.task;
       if (!task) return toast("没有取到尾帧", true);
       this.addFrameNode(id, task);
@@ -1935,13 +1937,7 @@ const Canvas = {
       if (event.button === 1) {
         // 中键平移：不取消选中
         event.preventDefault();
-        this._pan = {
-          sx: event.clientX, sy: event.clientY,
-          cx: this.camera.x, cy: this.camera.y, moved: true,
-          pointerId: event.pointerId,
-        };
-        view.classList.add("panning");
-        try { view.setPointerCapture(event.pointerId); } catch { /* 合成事件忽略 */ }
+        this.startPan(event, true);
         return;
       }
       if (event.button !== 0) return;
@@ -1954,18 +1950,21 @@ const Canvas = {
         return;
       }
       // 拖动空白是平移，不取消选中（创作区要跟着节点走）；只有没拖动的点击才取消选中
-      this._pan = {
-        sx: event.clientX, sy: event.clientY,
-        cx: this.camera.x, cy: this.camera.y, moved: false,
-        pointerId: event.pointerId,
-      };
-      view.classList.add("panning");
-      try { view.setPointerCapture(event.pointerId); } catch { /* 合成事件忽略 */ }
+      this.startPan(event);
     });
 
     view.addEventListener("pointermove", (event) => this.onPointerMove(event));
     view.addEventListener("pointerup", (event) => this.onPointerUp(event));
     view.addEventListener("pointercancel", (event) => this.onPointerUp(event));
+    // 画布里的节点 / 组框禁止浏览器原生拖拽：否则拖到一半会变成原生 DnD（dragstart → pointercancel），
+    // 指针事件流直接断掉，节点只跟手 1px 就僵住，看着像「拖不动 / 拖动错乱」
+    view.addEventListener("dragstart", (event) => {
+      // 输入框里选中文字往外拖还是保留系统行为
+      if (event.target.closest?.("textarea, input, [contenteditable]")) return;
+      if (event.target.closest?.(".cv-node, .cv-group, .canvas-toolbar, .cv-composer")) {
+        event.preventDefault();
+      }
+    });
     // 指针捕获被系统收回（切窗口 / 元素重建）：当成松手收尾
     view.addEventListener("lostpointercapture", (event) => {
       if (this.hasGesture()) this.onPointerUp(event);
@@ -2025,11 +2024,13 @@ const Canvas = {
       const node = this.byId(id);
       if (!node) return;
       // 多选集整体拖动；拖没选中的节点就是单选
-      const items = this.selection.has(id)
-        ? [...this.selection].map((nid) => {
-            const n = this.byId(nid);
-            return { id: nid, x: n.x, y: n.y };
-          })
+      // 多选时整片一起拖：只取还存在的节点（选中集可能残留已删掉的 id，
+      // 以前这里会读到 null 直接抛错，连拖动都起不来）
+      const picked = this.selection.has(id)
+        ? [...this.selection].map((nid) => this.byId(nid)).filter(Boolean)
+        : [];
+      const items = picked.length
+        ? picked.map((n) => ({ id: n.id, x: n.x, y: n.y }))
         : [{ id, x: node.x, y: node.y }];
       const drag = {
         id, sx: event.clientX, sy: event.clientY,
@@ -2094,7 +2095,7 @@ const Canvas = {
       if (media) this.previewNode(media.dataset.media);
     });
 
-    // ---- 组框：点选 = 选中成员；拖动 = 整组移动；输入框改名 ----
+    // ---- 组框：拖标题栏 / 边框 = 整组移动；框内空位 = 平移画布；输入框改名 ----
     const groupsLayer = $("#canvasGroups");
     groupsLayer.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
@@ -2107,7 +2108,6 @@ const Canvas = {
       const id = el.dataset.group;
       const group = this.layout().groups?.[id];
       if (!group) return;
-      const memberIds = (group.members || []).filter((mid) => this.byId(mid));
       if (event.target.closest(".cv-group-name")) {
         // 点输入框：选中组并聚焦改名
         this.selectedGroup = id;
@@ -2115,7 +2115,25 @@ const Canvas = {
         event.target.focus();
         return;
       }
-      this.setSelection(memberIds, memberIds.length === 1 ? memberIds[0] : "");
+      // 组框是一整块矩形，框里大部分是节点之间的空位。以前在空位上一拖就把整组
+      // （可能几十个节点）全部选中一起搬走，看着像「整个画布被拉走」。
+      // 现在只有标题栏和四条边框能拖组，框内空位还给画布平移。
+      const rect = el.getBoundingClientRect();
+      const grip = 12;
+      const onHead = !!event.target.closest(".cv-group-head");
+      const onEdge = event.clientX - rect.left <= grip || rect.right - event.clientX <= grip
+        || event.clientY - rect.top <= grip || rect.bottom - event.clientY <= grip;
+      if (!onHead && !onEdge) {
+        this.selectedGroup = "";
+        $$(".cv-group.selected").forEach((node2) => node2.classList.remove("selected"));
+        this.startPan(event);
+        return;
+      }
+      const memberIds = (group.members || []).filter((mid) => this.byId(mid));
+      // 只高亮这个组，不把成员塞进「已选中」：
+      // 否则整组搬完之后成员一直停在多选状态，接着拖任意一个节点都会带着整组跑，
+      // 看起来就是「全局一起被选中被拉动」。
+      if (this.selection.size) this.setSelection([], "");
       this.selectedGroup = id;
       $$(".cv-group").forEach((node2) => node2.classList.toggle("selected", node2.dataset.group === id));
       const items = memberIds.map((nid) => {
@@ -2511,6 +2529,18 @@ const Canvas = {
 
   deleteAsset(id) {
     this.deleteNodes([id]);
+  },
+
+  /* 开始平移画布：空白处、中键、组框内部的空位都走这里 */
+  startPan(event, moved = false) {
+    const view = $("#canvasView");
+    this._pan = {
+      sx: event.clientX, sy: event.clientY,
+      cx: this.camera.x, cy: this.camera.y, moved,
+      pointerId: event.pointerId,
+    };
+    view.classList.add("panning");
+    try { view.setPointerCapture(event.pointerId); } catch { /* 合成事件忽略 */ }
   },
 
   /* 当前有没有进行中的指针手势（平移 / 框选 / 连线 / 拖节点 / 拖组 / 文本区待拖） */

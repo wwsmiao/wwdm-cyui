@@ -31,9 +31,10 @@ const API = {
   // 本地图片编辑：裁剪 / 旋转翻转 / 色调，直接出新作品
   editImage: (url, op, options = {}) =>
     request("/api/images/edit", { method: "POST", body: { url, op, options } }),
-  // 本地取视频尾帧（ffmpeg）：输出一张新的图片作品
-  videoLastFrame: (url, projectId = "") =>
-    request("/api/video/last-frame", { method: "POST", body: { url, project_id: projectId } }),
+  // 本地取视频尾帧（ffmpeg）：输出一张新的图片作品。ref 是节点上的素材引用，
+  // 用来读取 ComfyUI 素材目录 / 资产库里的视频（项目作品只靠 url 就够）
+  videoLastFrame: (url, projectId = "", ref = null) =>
+    request("/api/video/last-frame", { method: "POST", body: { url, project_id: projectId, ref } }),
 
   // 资产库：分类=文件夹，资产=文件
   libraryAssets: (category = "") =>

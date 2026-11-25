@@ -122,7 +122,7 @@ def build_services() -> dict:
     tasks.stitcher = stitcher
     ai = Assistant(settings, workflows, comfy, tasks, files)
     images = ImageManager(projects)
-    frames = VideoFrames(projects)
+    frames = VideoFrames(projects, files, library)
     agent = Agent(settings_store)
     editor = ImageEditor(projects)
     monitor = SystemMonitor(comfy)
