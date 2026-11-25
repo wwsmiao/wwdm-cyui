@@ -14,6 +14,7 @@ from core.monitor import SystemMonitor
 from core.progress import ComfyEventBus
 from core.projects import ProjectManager
 from core.store import JsonStore
+from core.video_frames import VideoFrames
 from core.tasks import TaskManager
 from core.workflows import WorkflowManager
 
@@ -121,6 +122,7 @@ def build_services() -> dict:
     tasks.stitcher = stitcher
     ai = Assistant(settings, workflows, comfy, tasks, files)
     images = ImageManager(projects)
+    frames = VideoFrames(projects)
     agent = Agent(settings_store)
     editor = ImageEditor(projects)
     monitor = SystemMonitor(comfy)
@@ -140,6 +142,7 @@ def build_services() -> dict:
         "comfy": comfy,
         "tasks": tasks,
         "images": images,
+        "frames": frames,
         "editor": editor,
         "stitcher": stitcher,
         "instance": instance,

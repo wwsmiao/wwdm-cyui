@@ -95,7 +95,7 @@ const CanvasComposer = {
     // 局部重绘默认不出现在下拉里；但这个节点本身就是局部重绘结果时要能显示自己的来源，
     // 否则下拉会悄悄跳到别的工作流，看着像被换掉了
     const list = (State.workflows || []).filter(
-      (wf) => (wf.kind || "image") === type && wf.category !== "inpaint"
+      (wf) => (wf.kind || "image") === type && wf.category !== "inpaint" && wf.category !== "tool"
         && wf.available !== false);
     const own = (State.workflows || []).find((wf) => wf.id === state?.workflow);
     if (own && own.category === "inpaint" && !list.some((wf) => wf.id === own.id)) {

@@ -159,6 +159,14 @@ const CardMenu = {
     this.actualSize = false;
   },
 
+  /* 视频作品才有「提取尾帧」：返回视频地址，不是视频就返回空串 */
+  videoOf(task) {
+    const url = (task?.images || [])[0] || "";
+    if (!url) return "";
+    if (task.kind === "video") return url;
+    return /\.(mp4|webm|mov|mkv|avi)$/i.test(url) ? url : "";
+  },
+
   /* 局部重绘用的工作流（category = inpaint）：创作区的工作流下拉里不出现，只在这里用 */
   inpaintWorkflows() {
     // 当前实例跑不起来的（缺节点 / 缺模型）不列，免得点了才报错
@@ -183,6 +191,7 @@ const CardMenu = {
 
   renderSide(task) {
     const hasImage = (task.images || []).length > 0;
+    const videoUrl = this.videoOf(task);
     const wf = State.workflows.find((item) => item.id === task.workflow);
     const workflowName = wf?.name || (task.workflow === "local-edit" ? "本地编辑" : (task.workflow || "—"));
     const prompt = task.prompt || "";
@@ -207,6 +216,7 @@ const CardMenu = {
         this.cell("rotate", "旋转翻转", "rotate", { disabled: !hasImage }),
         this.cell("tone", "色调调整", "sliders", { disabled: !hasImage }),
         this.cell("upscale", "高清放大", "expand", { disabled: !hasImage }),
+        this.cell("last-frame", "提取尾帧", "image", { disabled: !videoUrl }),
       ])}
 
       ${this.group("画面修复", [
@@ -337,6 +347,11 @@ const CardMenu = {
         onCreated: (created) => this.adoptTask(created),
       });
     }
+    if (act === "last-frame") {
+      const video = this.videoOf(task);
+      if (!video) return toast("这条作品不是视频", true);
+      return this.lastFrame(task, video);
+    }
     if (act === "regen") return this.regenerate(task);
     if (act === "remove") return this.remove(task);
 
@@ -345,6 +360,24 @@ const CardMenu = {
       title: `${label}尚未接入`,
       message: "入口已占位，等接入对应的 ComfyUI 编辑工作流（重绘 / 局部遮罩）后就能直接用这张图处理。",
     });
+  },
+
+  /* 取视频最后一帧 → 新建一张图片作品，并自动切过去看 */
+  async lastFrame(task, url) {
+    if (this._frameBusy) return;
+    this._frameBusy = true;
+    toast("正在提取视频尾帧…");
+    try {
+      const result = await API.videoLastFrame(url, task.project_id || State.activeId);
+      if (!result?.task) return toast("没有取到尾帧", true);
+      this.adoptTask(result.task);         // 直接切到新图
+      window.Main?.refreshAll?.();         // 作品列表 / 画布同步这条新任务
+      toast("已生成尾帧图片");
+    } catch (error) {
+      Dialog.warn({ title: "提取尾帧失败", message: error.message });
+    } finally {
+      this._frameBusy = false;
+    }
   },
 
   /* 把这张作品作为素材节点发到无限画布，方便从它拉线继续创作 */

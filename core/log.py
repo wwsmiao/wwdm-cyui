@@ -45,6 +45,7 @@ _ACTION_RULES = [
     ("POST", r"^/api/references/upload$", "上传素材"),
     ("POST", r"^/api/references/import$", "导入素材"),
     ("POST", r"^/api/images/edit$", "本地图片编辑"),
+    ("POST", r"^/api/video/last-frame$", "提取视频尾帧"),
     ("POST", r"^/api/images/delete$", "删除图片"),
     ("POST", r"^/api/tasks/[^/]+/cancel$", "取消任务"),
     ("POST", r"^/api/tasks/[^/]+/reclaim$", "找回结果"),

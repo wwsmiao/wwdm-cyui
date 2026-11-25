@@ -186,6 +186,24 @@ def deepseek_models():
         return jsonify({"error": f"获取模型列表失败：{exc}"}), 502
 
 
+@bp.post("/video/last-frame")
+def video_last_frame():
+    """取视频最后一帧，存成一张新的图片作品（本地 ffmpeg，不走 ComfyUI）。"""
+    from core.video_frames import VideoFrameError
+
+    data = request.get_json(silent=True) or {}
+    url = str(data.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "缺少视频地址"}), 400
+    try:
+        task = services()["frames"].last_frame(url, data.get("project_id") or "")
+    except VideoFrameError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": f"取尾帧失败：{exc}"}), 500
+    return jsonify({"ok": True, "task": task}), 201
+
+
 @bp.post("/prompt/run")
 def run_prompt():
     """四种提示词功能：润色 / 单图反推 / 图片编辑润色 / minimax 提示词。"""

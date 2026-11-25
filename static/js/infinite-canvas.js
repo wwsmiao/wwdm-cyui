@@ -905,7 +905,7 @@ const Canvas = {
     const type = kind === "prompt" ? "llm" : kind;
     // 局部重绘只从作品卡片的遮罩弹窗里用，画布节点不默认选它
     const list = (State.workflows || []).filter(
-      (wf) => (wf.kind || "image") === type && wf.category !== "inpaint"
+      (wf) => (wf.kind || "image") === type && wf.category !== "inpaint" && wf.category !== "tool"
         && wf.available !== false);
     // 图片节点：有上游素材优先图生图，没有素材（如提示词节点下游）用文生图
     const fits = (wf) => (kind !== "image" ? true : !!wf.needs_image === !!hasMedia);
@@ -1037,6 +1037,63 @@ const Canvas = {
     window.Main?.refreshAll?.();
     this.select(id);
     toast("已提交局部重绘，节点会显示进度");
+  },
+
+  /* 视频节点 → 取最后一帧，落成旁边的一张新图片节点（本地 ffmpeg，不经过 ComfyUI） */
+  async lastFrameNode(id) {
+    const node = this.byId(id);
+    if (!node) return;
+    const url = node.type === "gen" ? (node.gen?.result || "") : (node.media || "");
+    if (!url) return toast("这个节点还没有视频", true);
+    if (this._frameBusy) return;
+    this._frameBusy = true;
+    toast("正在提取视频尾帧…");
+    try {
+      const result = await API.videoLastFrame(url, State.activeId);
+      const task = result?.task;
+      if (!task) return toast("没有取到尾帧", true);
+      this.addFrameNode(id, task);
+      // 新任务要进 State.tasks，作品列表 / 画布同步都能看到
+      window.Main?.refreshAll?.();
+    } catch (error) {
+      Dialog.warn({ title: "提取尾帧失败", message: error.message });
+    } finally {
+      this._frameBusy = false;
+    }
+  },
+
+  /* 尾帧落到画布：源节点右侧新建一个图片节点，并从源节点拉一条线标明出处 */
+  addFrameNode(sourceId, task) {
+    const url = (task.images || [])[0] || "";
+    if (!url) return;
+    const src = this.byId(sourceId);
+    const layout = this.layout();
+    const center = this.viewCenterWorld?.() || { x: 0, y: 0 };
+    this.record();
+    const id = `asset:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    layout.assets[id] = {
+      id,
+      kind: "image",
+      name: task.prompt || "视频尾帧",
+      origin: "视频尾帧",
+      url,
+      ref: { source: "project", name: url },
+      width: Number(task.width) || 0,
+      height: Number(task.height) || 0,
+      taskId: task.id || "",
+    };
+    layout.nodes[id] = {
+      x: Math.round(src ? src.x + (src.w || 232) + 56 : center.x),
+      y: Math.round(src ? src.y : center.y),
+    };
+    if (src) {
+      layout.edges = layout.edges || [];
+      layout.edges.push({ from: sourceId, to: id });
+    }
+    this.save();
+    this.render();
+    this.select(id);
+    toast("已把尾帧图片放到画布，可以继续拉线创作");
   },
 
   /* 批量删除：按 id 类型清掉节点数据与相关连线，一次撤销 */
@@ -1689,11 +1746,23 @@ const Canvas = {
     return !/\.(mp4|webm|mov|mkv|mp3|wav|m4a|flac)$/i.test(String(url));
   },
 
+  /* 能不能取尾帧：节点上挂的是视频文件（后端还会再校验 ffmpeg） */
+  lastFrameable(node) {
+    const url = node?.type === "gen" ? (node.gen?.result || "") : (node?.media || "");
+    if (!url) return false;
+    if (node.type === "gen" && node.gen?.kind && node.gen.kind !== "video") return false;
+    if (node?.kind === "video") return true;
+    return /\.(mp4|webm|mov|mkv|avi)(?:$|\?)/i.test(String(url));
+  },
+
   typeMenuFor(node) {
     const groupCount = this.selection.size;
     const groupItem = `<button data-menu="group">${icon("grid")}打组（与选中 ${groupCount} 个节点）</button>`;
     const inpaintItem = this.inpaintable(node)
       ? `<button data-menu="inpaint">${icon("mask")}局部重绘…</button>`
+      : "";
+    const lastFrameItem = this.lastFrameable(node)
+      ? `<button data-menu="last-frame">${icon("image")}提取视频尾帧</button>`
       : "";
     if (node?.type === "gen") {
       const status = node.gen.status;
@@ -1704,6 +1773,7 @@ const Canvas = {
         <button data-menu="run">${icon("sparkle")}${status === "done" ? "重新生成" : "生成"}</button>
         ${node.gen.result ? `<button data-menu="preview">${icon("expand")}查看素材生成信息</button>` : ""}
         ${inpaintItem}
+        ${lastFrameItem}
         ${node.gen.kind === "prompt" && node.gen.result
           ? `<button data-menu="download">${icon("download")}下载文本（.txt）</button>`
           : node.gen.result ? `<button data-menu="download">${icon("download")}下载当前素材</button>` : ""}
@@ -1725,6 +1795,7 @@ const Canvas = {
     return `
       <button data-menu="use">${icon("sparkle")}${isText ? "用此文本创作" : "基于此素材创作"}</button>
       ${inpaintItem}
+      ${lastFrameItem}
       <button data-menu="preview">${icon("expand")}查看素材生成信息</button>
       <button data-menu="download">${icon("download")}${isText ? "下载文本（.txt）" : "下载素材"}</button>
       ${isText ? `<button data-menu="edit">${icon("edit")}编辑文本</button>` : ""}
@@ -1859,15 +1930,18 @@ const Canvas = {
     view.addEventListener("pointerdown", (event) => {
       // 点连线要交给连线的 click 处理，不能被画布当成平移起点（捕获指针会吞掉 click）
       if (event.target.closest(".cv-node, .canvas-toolbar, .cv-edge, .cv-composer, .popover, .cv-minimap, .cv-group")) return;
+      // 上一次手势没收到 pointerup（松手在窗口外 / 捕获失败）时先收尾，别让旧状态跟着新手势走
+      if (this.hasGesture()) this.abortGesture();
       if (event.button === 1) {
         // 中键平移：不取消选中
         event.preventDefault();
         this._pan = {
           sx: event.clientX, sy: event.clientY,
           cx: this.camera.x, cy: this.camera.y, moved: true,
+          pointerId: event.pointerId,
         };
         view.classList.add("panning");
-        view.setPointerCapture(event.pointerId);
+        try { view.setPointerCapture(event.pointerId); } catch { /* 合成事件忽略 */ }
         return;
       }
       if (event.button !== 0) return;
@@ -1875,7 +1949,7 @@ const Canvas = {
       this.closeAddMenu();
       if ((event.ctrlKey || event.shiftKey) && !event.altKey) {
         // Ctrl + 拖空白 = 框选（Shift 兼容）
-        this._box = { sx: event.clientX, sy: event.clientY };
+        this._box = { sx: event.clientX, sy: event.clientY, pointerId: event.pointerId };
         try { view.setPointerCapture(event.pointerId); } catch { /* 合成事件忽略 */ }
         return;
       }
@@ -1883,6 +1957,7 @@ const Canvas = {
       this._pan = {
         sx: event.clientX, sy: event.clientY,
         cx: this.camera.x, cy: this.camera.y, moved: false,
+        pointerId: event.pointerId,
       };
       view.classList.add("panning");
       try { view.setPointerCapture(event.pointerId); } catch { /* 合成事件忽略 */ }
@@ -1891,6 +1966,19 @@ const Canvas = {
     view.addEventListener("pointermove", (event) => this.onPointerMove(event));
     view.addEventListener("pointerup", (event) => this.onPointerUp(event));
     view.addEventListener("pointercancel", (event) => this.onPointerUp(event));
+    // 指针捕获被系统收回（切窗口 / 元素重建）：当成松手收尾
+    view.addEventListener("lostpointercapture", (event) => {
+      if (this.hasGesture()) this.onPointerUp(event);
+    });
+    // 兜底：松手落在画布外面（工具栏、侧栏、窗口边缘）时也能结束手势
+    document.addEventListener("pointerup", (event) => {
+      if (this.hasGesture()) this.onPointerUp(event);
+    });
+    // 切到别的窗口 / 最小化时鼠标不会再回来，直接把手势收干净
+    window.addEventListener("blur", () => this.abortGesture());
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) this.abortGesture();
+    });
 
     view.addEventListener("wheel", (event) => {
       if (event.target.closest(".canvas-toolbar, .cv-composer, .popover")) return;
@@ -1908,6 +1996,8 @@ const Canvas = {
       const el = event.target.closest(".cv-node");
       if (!el) return;
       event.stopPropagation();
+      // 上一次手势没收到 pointerup 就先把状态清掉，避免节点 / 画布被“粘”在鼠标上
+      if (this.hasGesture()) this.abortGesture();
       this.closeMenu();
       this.closeAddMenu();
       this._justMoved = "";
@@ -1915,9 +2005,12 @@ const Canvas = {
       const port = event.target.closest(".cv-port");
       if (port) {
         if (port.dataset.port !== "out") return;
-        this._link = { from: id, sx: event.clientX, sy: event.clientY, moved: false };
+        this._link = {
+          from: id, sx: event.clientX, sy: event.clientY, moved: false,
+          pointerId: event.pointerId,
+        };
         el.classList.add("linking");
-        view.setPointerCapture(event.pointerId);
+        try { view.setPointerCapture(event.pointerId); } catch { /* 合成事件忽略 */ }
         return;
       }
       if (event.shiftKey || event.ctrlKey) {
@@ -2008,6 +2101,7 @@ const Canvas = {
       const el = event.target.closest(".cv-group");
       if (!el) return;
       event.stopPropagation();
+      if (this.hasGesture()) this.abortGesture();
       this.closeMenu();
       this.closeAddMenu();
       const id = el.dataset.group;
@@ -2035,7 +2129,7 @@ const Canvas = {
         groupY: parseFloat(el.style.top) || group.rect?.y || 0,
       };
       Works._dragging = true;
-      try { view.setPointerCapture(event.pointerId); } catch { /* 合成事件忽略 */ }
+      // 先不抓指针：没拖动时让 click 正常落在组框上，超过阈值再抓
     });
 
     groupsLayer.addEventListener("input", (event) => {
@@ -2194,6 +2288,7 @@ const Canvas = {
       }
       if (action === "tidy") return this.tidy();
       if (action === "inpaint") return this.openInpaint(id);
+      if (action === "last-frame") return void this.lastFrameNode(id);
     });
 
     $("#canvasAddMenu").addEventListener("click", (event) => {
@@ -2418,8 +2513,72 @@ const Canvas = {
     this.deleteNodes([id]);
   },
 
+  /* 当前有没有进行中的指针手势（平移 / 框选 / 连线 / 拖节点 / 拖组 / 文本区待拖） */
+  hasGesture() {
+    return !!(this._pan || this._box || this._link || this._gmove || this._move || this._pendingDrag);
+  },
+
+  /* 把拖拽后的节点位置写回布局并保存 */
+  persistDragPositions(items) {
+    const layout = this.layout();
+    let changed = false;
+    (items || []).forEach((item) => {
+      const node = this.byId(item.id);
+      if (!node) return;
+      layout.nodes[node.id] = { x: Math.round(node.x), y: Math.round(node.y) };
+      changed = true;
+    });
+    if (changed) this.save();
+  },
+
+  /* 手势被打断（窗口失焦 / 指针取消 / 松手事件丢失）时就地收尾。
+     不清理的话，画布或节点会一直跟着鼠标走 —— 就是「拖到全局」那个问题。 */
+  abortGesture() {
+    if (!this.hasGesture()) return;
+    if (this._box) {
+      const marquee = $("#canvasMarquee");
+      if (marquee) marquee.hidden = true;
+      this._box = null;
+    }
+    if (this._link) {
+      $$(".cv-port.link-target").forEach((el) => el.classList.remove("link-target"));
+      $$(".cv-node.linking, .cv-node.linking-target")
+        .forEach((el) => el.classList.remove("linking", "linking-target"));
+      this._link = null;
+      this.drawEdges();
+    }
+    if (this._gmove) {
+      if (this._gmove.moved) this.persistDragPositions(this._gmove.items);
+      this._gmove = null;
+    }
+    if (this._move) {
+      this.elOf(this._move.id)?.classList.remove("dragging");
+      if (this._move.moved) this.persistDragPositions(this._move.items);
+      this._move = null;
+    }
+    if (this._pan) {
+      $("#canvasView")?.classList.remove("panning");
+      this.saveCamera();
+      this._pan = null;
+    }
+    this._pendingDrag = null;
+    this._dragField = null;
+    // 作品卡片拖拽时 _dragging 是个对象，别把它一起清掉
+    if (Works._dragging === true) Works._dragging = false;
+  },
+
   onPointerMove(event) {
     const view = $("#canvasView");
+    const gesture = this._pan || this._box || this._link || this._gmove || this._move || this._pendingDrag;
+    if (!gesture) return;
+    // 多指 / 触控板另一根手指的事件不要串到当前手势上
+    if (gesture.pointerId != null && event.pointerId != null && gesture.pointerId !== event.pointerId) return;
+    // 松手事件丢了（在窗口外松开、指针捕获失败）：当成就地松手收尾，
+    // 否则画布会一直跟着鼠标跑（以前「拖到全局」就是这个原因）
+    if (event.buttons === 0) {
+      this.onPointerUp(event);
+      return;
+    }
     if (this._box) {
       const rect = view.getBoundingClientRect();
       const left = Math.max(0, Math.min(this._box.sx, event.clientX) - rect.left);
@@ -2463,11 +2622,13 @@ const Canvas = {
       return;
     }
     if (this._pan) {
-      if (Math.abs(event.clientX - this._pan.sx) + Math.abs(event.clientY - this._pan.sy) > 3) {
-        this._pan.moved = true;
-      }
-      this.camera.x = this._pan.cx + event.clientX - this._pan.sx;
-      this.camera.y = this._pan.cy + event.clientY - this._pan.sy;
+      const dx = event.clientX - this._pan.sx;
+      const dy = event.clientY - this._pan.sy;
+      if (!this._pan.moved && Math.abs(dx) + Math.abs(dy) > 3) this._pan.moved = true;
+      // 只是点一下空白：别因为手抖几个像素就把画布带走
+      if (!this._pan.moved) return;
+      this.camera.x = this._pan.cx + dx;
+      this.camera.y = this._pan.cy + dy;
       this.applyCamera();
       return;
     }
@@ -2534,6 +2695,9 @@ const Canvas = {
 
   onPointerUp(event) {
     const view = $("#canvasView");
+    // 只认发起手势的那根指针：别让另一根手指 / 合成事件提前结束当前手势
+    const active = this._pan || this._box || this._link || this._gmove || this._move || this._pendingDrag;
+    if (active?.pointerId != null && event?.pointerId != null && active.pointerId !== event.pointerId) return;
     // 文本区里只是点了一下：清掉「待拖」状态，别让它留到下一次
     if (this._pendingDrag) {
       this._pendingDrag = null;
@@ -2574,6 +2738,9 @@ const Canvas = {
       const from = this._link.from;
       const moved = this._link.moved;
       const rect = view.getBoundingClientRect();
+      // 松在画布外面（侧栏 / 工具栏 / 窗口外）：只收尾，不建节点
+      const outside = event.clientX < rect.left || event.clientX > rect.right
+        || event.clientY < rect.top || event.clientY > rect.bottom;
       const worldPoint = {
         x: (event.clientX - rect.left - this.camera.x) / this.camera.zoom,
         y: (event.clientY - rect.top - this.camera.y) / this.camera.zoom,
@@ -2585,7 +2752,7 @@ const Canvas = {
       if (target && target !== from) this.addEdge(from, target);
       else if (under?.closest(".cv-node")) {
         toast("连线要落到创作节点上（左侧圆点或卡片）", true);
-      } else if (!under?.closest(".cv-composer, .popover, .canvas-toolbar")) {
+      } else if (!outside && !under?.closest(".cv-composer, .popover, .canvas-toolbar")) {
         // 松在空白处：直接建合一创作节点（类型可在创作区里切换）
         // 只是点了一下端口（没拖动）就建在源节点右侧，避免和源节点重叠
         this.createGenNode("image", moved
@@ -2594,15 +2761,7 @@ const Canvas = {
       }
     }
     if (this._gmove) {
-      if (this._gmove.moved) {
-        const layout2 = this.layout();
-        this._gmove.items.forEach((item) => {
-          const node = this.byId(item.id);
-          if (node) layout2.nodes[node.id] = { x: Math.round(node.x), y: Math.round(node.y) };
-        });
-        this.save();
-      }
-      Works._dragging = false;
+      if (this._gmove.moved) this.persistDragPositions(this._gmove.items);
       this._gmove = null;
     }
     if (this._move) {
@@ -2611,14 +2770,8 @@ const Canvas = {
         this._justMoved = this._move.id;
         clearTimeout(this._justMovedTimer);
         this._justMovedTimer = setTimeout(() => { this._justMoved = ""; }, 80);
-        const layout = this.layout();
-        this._move.items.forEach((item) => {
-          const node = this.byId(item.id);
-          if (node) layout.nodes[node.id] = { x: Math.round(node.x), y: Math.round(node.y) };
-        });
-        this.save();
+        this.persistDragPositions(this._move.items);
       }
-      Works._dragging = false;
       this._move = null;
     }
     if (this._pan) {
@@ -2628,6 +2781,8 @@ const Canvas = {
       this.saveCamera();
       if (wasClick) this.setSelection([], "");
     }
+    // 手势全部结束：恢复轮询重建 DOM（否则进度刷新会一直停着）
+    if (!this.hasGesture() && Works._dragging === true) Works._dragging = false;
   },
 };
 

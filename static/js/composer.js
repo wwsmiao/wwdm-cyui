@@ -224,7 +224,8 @@ const Composer = {
   workflowsFor(type = State.mediaType) {
     return State.workflows.filter((wf) => {
       // 局部重绘这类专用工作流只在作品卡片的对应入口里出现，不混进创作区
-      if (wf.category === "inpaint") return false;
+      // （tool = 纯本地工具，比如视频尾帧，没有 ComfyUI 图可以提交）
+      if (wf.category === "inpaint" || wf.category === "tool") return false;
       // 当前 ComfyUI 实例跑不起来（缺节点 / 缺模型）的不列出来，免得选了才报错
       if (wf.available === false) return false;
       const kind = wf.kind || "image";

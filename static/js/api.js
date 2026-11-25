@@ -31,6 +31,9 @@ const API = {
   // 本地图片编辑：裁剪 / 旋转翻转 / 色调，直接出新作品
   editImage: (url, op, options = {}) =>
     request("/api/images/edit", { method: "POST", body: { url, op, options } }),
+  // 本地取视频尾帧（ffmpeg）：输出一张新的图片作品
+  videoLastFrame: (url, projectId = "") =>
+    request("/api/video/last-frame", { method: "POST", body: { url, project_id: projectId } }),
 
   // 资产库：分类=文件夹，资产=文件
   libraryAssets: (category = "") =>
